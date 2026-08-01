@@ -18,7 +18,7 @@ on:
 
 # NOTE: workflow-level paths-ignore above still skips the entire workflow for
 # pure doc/markdown changes.  The per-job path filters below provide finer
-# granularity so that, e.g., a Cargo.toml-only change skips FIPS/dylint.
+# granularity so that, e.g., a docs-adjacent config change skips FIPS/tests.
 
 # Concurrency strategy:
 # - On pull_request: group by PR number. New commits cancel the in-flight run.
@@ -36,7 +36,9 @@ env:
   RUST_BACKTRACE: full
   # We do NOT set RUSTC_WRAPPER globally; we'll enable it per-job after probing sccache.
   # RUSTC_WRAPPER: sccache
-  SCCACHE_CACHE_SIZE: "2G"
+  # Size of sccache's local-disk layer (the fallback when the GHA backend is
+  # unavailable). 2G measurably thrashed within single jobs; 8G fits runners.
+  SCCACHE_CACHE_SIZE: "8G"
   # Usually better determinism and smaller cache churn in CI.
   CARGO_INCREMENTAL: "0"
   # Pinned nightly toolchain used by the coverage job. Independent of the pin in
@@ -51,6 +53,7 @@ jobs:
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
@@ -85,6 +88,8 @@ jobs:
               # still get the cross-lane TimescaleDB pin checked, or the guard
               # silently never runs on exactly the diff it exists to catch.
               - 'testing/e2e/lib/sidecars.py'
+              # Architecture-lint configuration (cargo gears lint reads it).
+              - 'Gears.toml'
             fips:
               - 'libs/toolkit/**'
               - 'libs/toolkit-http/**'
@@ -115,19 +120,13 @@ jobs:
       || needs.changes.outputs.ci == 'true'
       || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       RUSTFLAGS: "-C debuginfo=0"
+      # Must exist BEFORE the probe step's `sccache --start-server` — the
+      # server binds its storage backend (GHA cache vs local disk) at startup.
+      SCCACHE_GHA_ENABLED: "true"
     steps:
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          swap-storage: true
-
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -152,12 +151,29 @@ jobs:
         with:
           tool: cargo-hack
 
-      - name: Cache Cargo/target
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # Restore the shared Cargo registry snapshot (crate sources + git DB;
+      # compiled objects live in sccache, not here). One explicit key per OS
+      # and lockfile, shared by every job: registry contents are derived from
+      # Cargo.lock alone, so the previous per-job/per-toolchain key suffixes
+      # only multiplied near-identical ~187 MB snapshots (9 lineages per
+      # scope) into the 10 GB quota. Explicit actions/cache keys instead of
+      # rust-cache: rust-cache hashes CARGO_*/RUST* env vars into its key, and
+      # RUSTFLAGS differs per job (lld-link, coverage cfg), which would split
+      # the lineage again silently. PR runs are restore-only; cache-warm.yml
+      # is the single writer and seeds the base-branch scope PRs read from.
+      # The key hashes the root Cargo.lock only (must stay in sync with
+      # cache-warm.yml): tools/fuzz is excluded from the workspace, so its
+      # lockfile never affects what `cargo fetch` put in the snapshot.
+      - name: Restore Cargo registry
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          cache-bin: false
-          cache-targets: false
-          shared-key: pr-clippy-${{ hashFiles('rust-toolchain.toml') }}
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
 
       - name: Install sccache
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
@@ -165,12 +181,22 @@ jobs:
       - name: Probe sccache & set RUSTC_WRAPPER
         shell: bash
         run: |
-          if sccache --start-server >/dev/null 2>&1; then
+          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
+          # on the GHA cache backend (the backend is fixed at server startup —
+          # setting it after `--start-server` would silently leave the server
+          # on a per-runner local-disk cache). On probe failure: plain rustc.
+          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
-            echo "sccache failed, falling back to plain rustc"
+            echo "sccache failed, falling back to plain rustc; startup output:"
+            cat /tmp/sccache-start.log || true
           fi
+
+      # free-disk-space cleanup was removed (runners start with ~88 GB free);
+      # this guard keeps disk headroom visible in logs in case that changes.
+      - name: Disk headroom (guard)
+        shell: bash
+        run: df -h .
 
       # Database image tags are pinned in libs/test-containers (docs/TESTING.md
       # 4.4). A fixture that constructs a container any other way re-introduces
@@ -199,24 +225,28 @@ jobs:
       || needs.changes.outputs.ci == 'true'
       || github.event_name == 'workflow_dispatch')
     runs-on: ${{ matrix.os }}
+    # Above the worst cold-cache Windows leg observed (run-level max 88 min was
+    # shear-bound, but the Windows leg has neared 53 min warm); tighten once
+    # the sccache warm state is proven.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
     env:
-      RUSTFLAGS: "-C debuginfo=0"
+      # lld-link on Windows: 329 test binaries get linked and links are the
+      # one phase sccache can never cache; lld is typically 2-5x faster than
+      # link.exe. NOTE: changing RUSTFLAGS changes sccache hashes, so the
+      # first Windows run after this change recompiles from cold.
+      RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C debuginfo=0 -C linker=lld-link' || '-C debuginfo=0' }}
+      # Windows/macOS skip the trybuild/compile-fail suites — serial rustc
+      # sessions over identical fixtures with the same pinned toolchain on
+      # every OS; the Ubuntu leg keeps full coverage. See .config/nextest.toml.
+      NEXTEST_PROFILE: ${{ matrix.os == 'ubuntu-latest' && 'default' || 'no-trybuild' }}
+      # Must exist BEFORE the probe step's `sccache --start-server` — the
+      # server binds its storage backend (GHA cache vs local disk) at startup.
+      SCCACHE_GHA_ENABLED: "true"
     steps:
-      - name: Free disk space
-        if: runner.os == 'Linux'
-        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          swap-storage: true
-
       - name: Force LF in working tree (w/a for Windows)
         if: runner.os == 'Windows'
         shell: bash
@@ -261,18 +291,24 @@ jobs:
           rustup show active-toolchain || rustup toolchain install
           rustup show
 
-      - name: Install nextest
+      # cargo-deny is included so `make install-tools` (invoked by the test
+      # targets) finds a new-enough binary and skips its ~2-4 min source build.
+      - name: Install nextest and cargo-deny
         uses: taiki-e/install-action@9114bf4d891761788c546334fd37538eae1bf8b3 # v2.87.16
         with:
-          tool: nextest
+          tool: nextest,cargo-deny@0.20.2
 
-      # Cache Cargo registry/git + target/ across platforms.
-      - name: Cache Cargo/target
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # Shared registry snapshot; restore-only (single writer: cache-warm.yml).
+      - name: Restore Cargo registry
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          cache-bin: false
-          cache-targets: false
-          shared-key: pr-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -282,12 +318,22 @@ jobs:
       - name: Probe sccache & set RUSTC_WRAPPER
         shell: bash
         run: |
-          if sccache --start-server >/dev/null 2>&1; then
+          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
+          # on the GHA cache backend (the backend is fixed at server startup —
+          # setting it after `--start-server` would silently leave the server
+          # on a per-runner local-disk cache). On probe failure: plain rustc.
+          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
-            echo "sccache failed, falling back to plain rustc"
+            echo "sccache failed, falling back to plain rustc; startup output:"
+            cat /tmp/sccache-start.log || true
           fi
+
+      # free-disk-space cleanup was removed (runners start with ~88 GB free);
+      # this guard keeps disk headroom visible in logs in case that changes.
+      - name: Disk headroom (guard)
+        shell: bash
+        run: df -h .
 
       - name: cargo test (no macros)
         run: make test-no-macros
@@ -310,19 +356,13 @@ jobs:
       || needs.changes.outputs.ci == 'true'
       || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       RUSTFLAGS: "-C debuginfo=0"
+      # Must exist BEFORE the probe step's `sccache --start-server` — the
+      # server binds its storage backend (GHA cache vs local disk) at startup.
+      SCCACHE_GHA_ENABLED: "true"
     steps:
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          swap-storage: true
-
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -342,17 +382,24 @@ jobs:
           rustup show active-toolchain || rustup toolchain install
           rustup show
 
-      - name: Install nextest
+      # cargo-deny is included so `make install-tools` (invoked by the test
+      # targets) finds a new-enough binary and skips its ~2-4 min source build.
+      - name: Install nextest and cargo-deny
         uses: taiki-e/install-action@9114bf4d891761788c546334fd37538eae1bf8b3 # v2.87.16
         with:
-          tool: nextest
+          tool: nextest,cargo-deny@0.20.2
 
-      - name: Cache Cargo/target
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # Shared registry snapshot; restore-only (single writer: cache-warm.yml).
+      - name: Restore Cargo registry
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          cache-bin: false
-          cache-targets: false
-          shared-key: pr-${{ runner.os }}-integration-${{ hashFiles('rust-toolchain.toml') }}
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -362,12 +409,22 @@ jobs:
       - name: Probe sccache & set RUSTC_WRAPPER
         shell: bash
         run: |
-          if sccache --start-server >/dev/null 2>&1; then
+          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
+          # on the GHA cache backend (the backend is fixed at server startup —
+          # setting it after `--start-server` would silently leave the server
+          # on a per-runner local-disk cache). On probe failure: plain rustc.
+          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
-            echo "sccache failed, falling back to plain rustc"
+            echo "sccache failed, falling back to plain rustc; startup output:"
+            cat /tmp/sccache-start.log || true
           fi
+
+      # free-disk-space cleanup was removed (runners start with ~88 GB free);
+      # this guard keeps disk headroom visible in logs in case that changes.
+      - name: Disk headroom (guard)
+        shell: bash
+        run: df -h .
 
       - name: UI tests for toolkit macros libraries
         run: make test-macros
@@ -445,24 +502,17 @@ jobs:
       || needs.changes.outputs.ci == 'true'
       || github.event_name == 'workflow_dispatch')
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
     env:
       RUSTFLAGS: "-C debuginfo=0"
+      # Must exist BEFORE the probe step's `sccache --start-server` — the
+      # server binds its storage backend (GHA cache vs local disk) at startup.
+      SCCACHE_GHA_ENABLED: "true"
     steps:
-      - name: Free disk space
-        if: runner.os == 'Linux'
-        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          swap-storage: true
-
       - name: Force LF in working tree (w/a for Windows)
         if: runner.os == 'Windows'
         shell: bash
@@ -491,21 +541,31 @@ jobs:
           rustup show active-toolchain || rustup toolchain install
           rustup show
 
-      - name: Install nextest
+      # cargo-deny is included so `make install-tools` (invoked by the test
+      # targets) finds a new-enough binary and skips its ~2-4 min source build.
+      - name: Install nextest and cargo-deny
         uses: taiki-e/install-action@9114bf4d891761788c546334fd37538eae1bf8b3 # v2.87.16
         with:
-          tool: nextest
+          tool: nextest,cargo-deny@0.20.2
 
-      # FIPS builds use a SEPARATE sccache bucket from non-FIPS jobs. The `-fips`
-      # cache-key segment guarantees a runner that toggles between FIPS and
-      # non-FIPS builds never reuses non-FIPS object files, which would otherwise
-      # silently produce a mixed binary that passes tests but isn't a true FIPS build.
-      - name: Cache Cargo/target
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # The registry snapshot holds crate SOURCES only, so sharing it with
+      # non-FIPS jobs cannot mix build artifacts. FIPS/non-FIPS object
+      # separation happens inside sccache, which keys objects by the full
+      # compile invocation (flags, features, toolchain) — FIPS objects are
+      # never served to a non-FIPS build. The `-fips` segment on the previous
+      # rust-cache key separated nothing security-relevant: that key ran with
+      # `cache-bin: false` + `cache-targets: false`, so it covered only crate
+      # sources, which are byte-identical between FIPS and non-FIPS builds.
+      - name: Restore Cargo registry
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          cache-bin: false
-          cache-targets: false
-          shared-key: pr-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}-fips
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -515,12 +575,22 @@ jobs:
       - name: Probe sccache & set RUSTC_WRAPPER
         shell: bash
         run: |
-          if sccache --start-server >/dev/null 2>&1; then
+          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
+          # on the GHA cache backend (the backend is fixed at server startup —
+          # setting it after `--start-server` would silently leave the server
+          # on a per-runner local-disk cache). On probe failure: plain rustc.
+          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
-            echo "sccache failed, falling back to plain rustc"
+            echo "sccache failed, falling back to plain rustc; startup output:"
+            cat /tmp/sccache-start.log || true
           fi
+
+      # free-disk-space cleanup was removed (runners start with ~88 GB free);
+      # this guard keeps disk headroom visible in logs in case that changes.
+      - name: Disk headroom (guard)
+        shell: bash
+        run: df -h .
 
       # Linux: aws-lc-fips path via the existing make target
       # (cf-gears-toolkit + cf-gears-toolkit-http, bootstrap + fips).
@@ -647,6 +717,7 @@ jobs:
       || needs.changes.outputs.ci == 'true'
       || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -676,20 +747,15 @@ jobs:
       || needs.changes.outputs.ci == 'true'
       || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
       id-token: write
+    env:
+      # Must exist BEFORE the probe step's `sccache --start-server` — the
+      # server binds its storage backend (GHA cache vs local disk) at startup.
+      SCCACHE_GHA_ENABLED: "true"
     steps:
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          swap-storage: true
-
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -709,17 +775,47 @@ jobs:
       - name: Pin nightly for all cargo commands
         run: echo "RUSTUP_TOOLCHAIN=${{ env.RUSTUP_TOOLCHAIN_NIGHTLY }}" >> "$GITHUB_ENV"
 
-      - name: Cache Cargo/target
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # Shared registry snapshot; restore-only (single writer: cache-warm.yml).
+      # Registry contents depend on Cargo.lock, not the compiler, so this
+      # nightly job reads the same entry as the stable jobs.
+      - name: Restore Cargo registry
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          cache-bin: false
-          cache-targets: false
-          shared-key: pr-${{ runner.os }}-nightly-${{ env.RUSTUP_TOOLCHAIN_NIGHTLY }}-llvm-cov
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
+
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
+
+      - name: Probe sccache & set RUSTC_WRAPPER
+        shell: bash
+        run: |
+          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
+          # on the GHA cache backend (the backend is fixed at server startup —
+          # setting it after `--start-server` would silently leave the server
+          # on a per-runner local-disk cache). On probe failure: plain rustc.
+          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          else
+            echo "sccache failed, falling back to plain rustc; startup output:"
+            cat /tmp/sccache-start.log || true
+          fi
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@9114bf4d891761788c546334fd37538eae1bf8b3 # v2.87.16
         with:
           tool: cargo-llvm-cov, nextest
+
+      # free-disk-space cleanup was removed (runners start with ~88 GB free);
+      # this guard keeps disk headroom visible in logs in case that changes.
+      - name: Disk headroom (guard)
+        shell: bash
+        run: df -h .
 
       # Generate lcov.info for upload. Customize flags/features as needed.
       #
@@ -782,7 +878,18 @@ jobs:
 
   lint:
     name: Architecture Lints (cargo gears lint)
+    needs: changes
+    if: >-
+      !cancelled()
+      && (needs.changes.result != 'success'
+      || needs.changes.outputs.rust == 'true'
+      || needs.changes.outputs.ci == 'true'
+      || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Single knob for the tool version, the install pin, and the cache key.
+      CARGO_GEARS_VERSION: "0.0.2"
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -799,8 +906,42 @@ jobs:
         with:
           toolchain: stable
 
+      # The nightly that cargo-gears 0.0.2's embedded dylint lints target
+      # (cf-cli crates/cargo-gears-core build.rs). Without it installed, the
+      # cached dylint driver fails its self-check and is rebuilt every run.
+      # Revisit on CARGO_GEARS_VERSION bumps.
+      - name: Install dylint driver toolchain
+        run: rustup toolchain install nightly-2026-01-22 --profile minimal
+
+      # cargo-gears embeds its dylint lint libraries at build time, so the
+      # binary (plus the dylint driver it builds on first run) is fully
+      # cacheable by version — this skips a ~6.5-minute source build per run.
+      # restore/save are split so a FAILING lint run (the fix-the-lint loop is
+      # exactly when reruns happen) still saves the freshly built tool.
+      # NOTE: entries saved by pull_request runs are scoped to that PR; only
+      # same-PR reruns hit until a main-scope run seeds the key (planned C1
+      # warm workflow; interim: one workflow_dispatch of CI on main).
+      - name: Restore cargo-gears and dylint driver
+        id: cache-cargo-gears
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/bin/cargo-gears
+            ~/.dylint_drivers
+          key: cargo-gears-${{ env.CARGO_GEARS_VERSION }}-${{ runner.os }}
+
       - name: Install cargo-gears
-        run: cargo install --locked cargo-gears
+        if: steps.cache-cargo-gears.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-gears@${{ env.CARGO_GEARS_VERSION }}
 
       - name: Run architecture lints
         run: cargo gears lint --dylint
+
+      - name: Save cargo-gears and dylint driver
+        if: always() && steps.cache-cargo-gears.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/bin/cargo-gears
+            ~/.dylint_drivers
+          key: cargo-gears-${{ env.CARGO_GEARS_VERSION }}-${{ runner.os }}
