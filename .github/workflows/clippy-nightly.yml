@@ -30,6 +30,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: "-C debuginfo=0"
+      # Must exist BEFORE the probe step's `sccache --start-server` — the
+      # server binds its storage backend (GHA cache vs local disk) at startup.
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -51,7 +54,7 @@ jobs:
           rustup show
 
       - name: Install cargo-hack
-        uses: taiki-e/install-action@6ef672efc2b5aabc787a9e94baf4989aa02a97df # v2.70.3
+        uses: taiki-e/install-action@065d6a08a14e61e89fb0a4c10eecdbdef39c7d8e # v2.85.4
         with:
           tool: cargo-hack
 
@@ -68,11 +71,13 @@ jobs:
       - name: Probe sccache & set RUSTC_WRAPPER
         shell: bash
         run: |
-          if sccache --start-server >/dev/null 2>&1; then
+          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
+          # on the GHA cache backend (the backend is fixed at server startup).
+          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
-            echo "sccache failed, falling back to plain rustc"
+            echo "sccache failed, falling back to plain rustc; startup output:"
+            cat /tmp/sccache-start.log || true
           fi
 
       - name: cargo clippy (full feature matrix)

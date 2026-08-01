@@ -21,7 +21,10 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            const rustCachePrPrefix = 'v0-rust-pr-';
+            // Covers ALL rust-cache lineages: the historical pr-* keys and
+            // stragglers like v0-rust-gts-validator-* that previously escaped
+            // both this cleanup and the release-time trim.
+            const rustCachePrPrefix = 'v0-rust-';
             const keepNewestPerKey = 3;
             const retentionDays = 7;
             const maxDeletes = 200;
