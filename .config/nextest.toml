@@ -1,0 +1,22 @@
+# Workspace nextest configuration.
+#
+# Profile selection in CI comes from the NEXTEST_PROFILE env var set per
+# matrix leg in .github/workflows/ci.yml.
+
+# `no-trybuild` — used by the Windows/macOS Test Suite legs.
+#
+# Excludes the compile-fail / trybuild-style suites: each is a serial rustc
+# session compiling fixture code with the same pinned toolchain on every OS,
+# so running them once (on the Ubuntu leg) preserves the signal while cutting
+# ~10-12 min from the Windows leg and ~8 min from macOS. Covered targets:
+#   - test(/compile_fail/): toolkit domain_model_compile_fail_tests,
+#     toolkit-canonical-errors ui_compile_fail, toolkit-db compile_fail_tests,
+#     event-broker-sdk typestate_builder_compile_failures_are_checked
+#   - binary(ui): trybuild UI harnesses (toolkit-db, toolkit-security,
+#     toolkit-canonical-errors, toolkit-odata-macros, ...)
+#   - binary(compile_tests): toolkit-odata-macros trybuild suite
+#   - binary(typed_builder_compilefail): toolkit trybuild suite
+#   - binary(prefix_customization): toolkit-gts suite that spawns sub-`cargo
+#     test` rebuilds to verify compile-time GTS_ID_PREFIX customization
+[profile.no-trybuild]
+default-filter = "not (test(/compile_fail/) or binary(ui) or binary(compile_tests) or binary(typed_builder_compilefail) or binary(prefix_customization))"
