@@ -618,4 +618,22 @@ ignored = [
     "tenant-resolver",
     "types-registry",
     "usage-collector",
+    # Deps referenced only from macro-generated / build-script-generated code,
+    # invisible to the fast static analysis that runs on PRs (`make shear`):
+    # - inventory: `inventory::submit!` emitted by ToolKit registration macros
+    # - utoipa / schemars / serde: derive expansions produced by toolkit macros
+    # - gts / toolkit / toolkit-canonical-errors: workspace crates referenced
+    #   by generated registration/error impls
+    # - prost / tonic-prost: tonic `include!`-ed OUT_DIR codegen
+    # Trade-off: a genuinely unused instance of these deps will not be flagged
+    # (the ignore also applies to the weekly `--expand` run).
+    "gts",
+    "inventory",
+    "prost",
+    "schemars",
+    "serde",
+    "tonic-prost",
+    "toolkit",
+    "toolkit-canonical-errors",
+    "utoipa",
 ]

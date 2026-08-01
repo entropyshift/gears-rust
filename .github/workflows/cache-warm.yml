@@ -1,0 +1,76 @@
+name: Cache Warm
+
+# Single writer for the shared Cargo-registry cache entries that ci.yml jobs
+# restore (key: cargo-registry-<OS>-<Cargo.lock hash>).
+#
+# Why this workflow exists: GitHub Actions caches are scoped — a pull_request
+# run can only read caches from its own ref and from the base branch. ci.yml
+# runs only on pull_request, so nothing ever populated the base-branch scope;
+# every PR started cold and saved its own duplicate snapshots instead
+# (~1.9 GB of near-identical registry entries per cold run, thrashing the
+# 10 GB quota). This workflow runs on push to main, so its entries land in
+# the base-branch scope that every PR run can restore from, and ci.yml jobs
+# are restore-only.
+#
+# The writer always starts from a clean runner and saves exactly what
+# `cargo fetch --locked` produced, so snapshots never accumulate stale crates.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/cache-warm.yml'
+  schedule:
+    # Weekly safety net: GitHub evicts cache entries unused for 7 days.
+    # PR restores refresh last-accessed, so this matters only in quiet weeks.
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  warm:
+    name: Warm registry cache (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain from rust-toolchain.toml
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup show
+
+      # Plain actions/cache (restore + save-on-miss): on an exact key hit the
+      # post step skips the save; on a lockfile change the fetch below
+      # repopulates and a fresh entry is saved under the new key.
+      - name: Cache Cargo registry
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          # Root lockfile only (not '**/Cargo.lock'): tools/fuzz is excluded
+          # from the workspace, so `cargo fetch` never caches its deps —
+          # hashing its lockfile would rotate the key without changing the
+          # content, and the paths filter above doesn't watch it either.
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+
+      - name: Fetch workspace dependencies
+        run: cargo fetch --locked

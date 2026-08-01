@@ -38,6 +38,10 @@ jobs:
     name: API Contract Checks
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Must exist BEFORE the probe step's `sccache --start-server` — the
+      # server binds its storage backend (GHA cache vs local disk) at startup.
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -100,11 +104,13 @@ jobs:
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
         run: |
-          if sccache --start-server >/dev/null 2>&1; then
+          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
+          # on the GHA cache backend (the backend is fixed at server startup).
+          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
-            echo "sccache failed, falling back to plain rustc"
+            echo "sccache failed, falling back to plain rustc; startup output:"
+            cat /tmp/sccache-start.log || true
           fi
 
       - name: Save committed spec & generate fresh spec

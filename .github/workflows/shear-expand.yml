@@ -1,0 +1,90 @@
+name: Shear (macro-expansion)
+
+# Weekly macro-expansion-accurate unused-dependency scan. PR runs use the fast
+# static `make shear` (seconds) in ci.yml; this scheduled job keeps the
+# `--expand` signal (deps used only inside macro-generated code) without
+# putting its ~50-minute, full-workspace nightly build on the PR critical
+# path. Findings that static shear cannot see should be fixed or added to
+# `[workspace.metadata.cargo-shear] ignored` in the root Cargo.toml.
+on:
+  schedule:
+    - cron: "0 4 * * 1" # weekly, Monday 04:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # For the file-issue-on-failure step, so scheduled failures stay visible.
+  issues: write
+
+concurrency:
+  group: shear-expand-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  # Keep in sync with RUSTUP_TOOLCHAIN_NIGHTLY in ci.yml and the toolchain
+  # pinned in the Makefile's `shear-expand` target.
+  RUSTUP_TOOLCHAIN_NIGHTLY: nightly-2026-04-16
+
+jobs:
+  shear-expand:
+    name: Unused Deps (cargo-shear --expand)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      # --expand compiles the workspace, so build-script deps are needed
+      # (protoc for proto crates; Go for aws-lc-fips-sys comes preinstalled).
+      - name: Install protoc
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust nightly toolchain
+        uses: dtolnay/rust-toolchain@5b842231ba77f5c045dba54ac5560fed2db780e2 # nightly
+        with:
+          toolchain: ${{ env.RUSTUP_TOOLCHAIN_NIGHTLY }}
+
+      - name: Install cargo-shear
+        uses: taiki-e/install-action@065d6a08a14e61e89fb0a4c10eecdbdef39c7d8e # v2.85.4
+        with:
+          tool: cargo-shear@1.13.1
+
+      - name: cargo shear --expand (workspace)
+        run: make shear-expand
+
+      # Scheduled failures notify only the workflow author by default; an
+      # issue keeps the advisory unused-deps signal visible to the team. Reuse
+      # an existing open issue so a persistent failure does not create spam.
+      - name: Open or update issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Weekly cargo-shear --expand run failed"
+          BODY="The scheduled macro-expansion unused-deps scan failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — likely a dep used only in macro-generated code (add it to [workspace.metadata.cargo-shear] ignored) or a build breakage on the pinned nightly."
+          EXISTING_ISSUE=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --search "$TITLE in:title" \
+            --json number,title \
+            --jq 'map(select(.title == "Weekly cargo-shear --expand run failed")) | .[0].number // empty' \
+            2>/dev/null || true)
+
+          if [ -n "$EXISTING_ISSUE" ]; then
+            gh issue comment "$EXISTING_ISSUE" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body "$BODY" \
+              || echo "Could not update issue (permissions or rate limit); check the run log."
+          else
+            gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" \
+              --body "$BODY" \
+              || echo "Could not create issue (permissions or rate limit); check the run log."
+          fi

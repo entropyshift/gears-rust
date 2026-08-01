@@ -205,7 +205,7 @@ setup: .setup-stamp
 # |             | - Ensures clean compilation across all targets and features          |
 # +-------------+----------------------------------------------------------------------+
 
-.PHONY: fmt clippy clippy-deep lychee docs-preview kani geiger safety lint dylint dylint-list dylint-test shear gts-docs cfs-ensure cfs-repair cfs-validate cfs-validate-kits cfs-validate-kit-local cfs-spec-coverage ensure-submodules
+.PHONY: fmt clippy clippy-deep lychee docs-preview kani geiger safety lint dylint dylint-list dylint-test shear shear-expand gts-docs cfs-ensure cfs-repair cfs-validate cfs-validate-kits cfs-validate-kit-local cfs-spec-coverage ensure-submodules
 
 ## Verify git submodules (e.g. guidelines/DNA) are initialized; fails otherwise.
 ensure-submodules:
@@ -315,8 +315,19 @@ dylint:
 	$(call check_tool,cargo-gears)
 	cargo gears lint --dylint
 
-# Check for unused dependencies with cargo-shear.
+# Check for unused dependencies with cargo-shear (fast static analysis; used
+# on PRs). Deps referenced only inside macro-generated code can be
+# false-positived here — add them to `[workspace.metadata.cargo-shear]
+# ignored` in the root Cargo.toml; the scheduled `shear-expand` run keeps the
+# macro-accurate signal.
 shear:
+	$(call check_tool,cargo-shear)
+	cargo shear --deny-warnings
+
+# Macro-expansion-accurate variant (slow: expands every package on nightly,
+# effectively rebuilding the workspace). Runs on a schedule in CI
+# (.github/workflows/shear-expand.yml), not on PRs.
+shear-expand:
 	$(call check_tool,cargo-shear)
 	cargo +nightly-2026-04-16 shear --expand --deny-warnings
 

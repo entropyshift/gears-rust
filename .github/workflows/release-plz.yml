@@ -71,54 +71,77 @@ jobs:
     permissions:
       actions: write
     steps:
-      - name: Delete PR rust caches
+      # Previously this deleted EVERY v0-rust-pr-* cache repo-wide on each
+      # release event — with releases (and failing-publish retries) happening
+      # daily, PR rust-cache restores missed even between two runs of the SAME
+      # PR. Now it only trims least-recently-used entries, and only when the
+      # repo is close to GitHub's 10 GB cache quota, so recently used PR
+      # caches survive and stay restorable.
+      - name: Trim least-recently-used PR rust caches
         env:
           GH_TOKEN: ${{ github.token }}
           REPO_FULL: ${{ github.repository }}
+          # Trim down to this total repo usage: leaves ~3 GiB of headroom for
+          # the release build's own cache writes before GitHub's 10 GiB LRU
+          # eviction would kick in.
+          TARGET_BYTES: "7516192768" # 7 GiB
+          MAX_DELETE: "500"
         run: |
-          set -euxo pipefail
+          set -euo pipefail
 
           OWNER="${REPO_FULL%%/*}"
           REPO="${REPO_FULL##*/}"
-          MAX_DELETE=500
+
+          CACHES=$(gh api --paginate "/repos/$OWNER/$REPO/actions/caches?per_page=100" | jq -s '[.[].actions_caches[]]')
+          TOTAL=$(jq 'map(.size_in_bytes) | add // 0' <<<"$CACHES")
+          echo "Repo cache usage: $TOTAL bytes (trim target: $TARGET_BYTES)"
+
+          if [ "$TOTAL" -le "$TARGET_BYTES" ]; then
+            echo "Under target — nothing to trim."
+            exit 0
+          fi
+
+          EXCESS=$((TOTAL - TARGET_BYTES))
           DELETED=0
+          FREED=0
 
-          RESP=$(gh api "/repos/$OWNER/$REPO/actions/caches?per_page=100&page=1")
-          COUNT=$(echo "$RESP" | jq '[.actions_caches[] | select(.key | startswith("v0-rust-pr-"))] | length')
-          SIZE=$(echo "$RESP" | jq '[.actions_caches[] | select(.key | startswith("v0-rust-pr-")) | .size_in_bytes] | add // 0')
-          echo "PR caches (page 1): count=$COUNT, size_bytes=$SIZE"
+          # Only PR-scoped rust caches (and the gts-validator lineage, which
+          # previously escaped every cleanup path) are eligible; least
+          # recently used go first. Pre-computing the list (instead of a
+          # process substitution) lets `set -e` catch a jq failure here.
+          ELIGIBLE=$(jq -r '
+            map(select((.key | startswith("v0-rust-pr-"))
+                    or (.key | startswith("v0-rust-gts-validator-"))))
+            | sort_by(.last_accessed_at // .created_at)
+            | .[] | [.id, (.size_in_bytes // 0), .key] | @tsv' <<<"$CACHES")
+          ELIGIBLE_TOTAL=$(jq '
+            map(select((.key | startswith("v0-rust-pr-"))
+                    or (.key | startswith("v0-rust-gts-validator-"))))
+            | map(.size_in_bytes) | add // 0' <<<"$CACHES")
 
-          PAGE=1
-          while true; do
-            RESP=$(gh api \
-              "/repos/$OWNER/$REPO/actions/caches?per_page=100&page=$PAGE")
+          if [ "$ELIGIBLE_TOTAL" -lt "$EXCESS" ]; then
+            echo "WARNING: eligible caches ($ELIGIBLE_TOTAL bytes) cannot cover the" \
+                 "excess ($EXCESS bytes) — ineligible lineages (sccache objects," \
+                 "main-scope keys, ...) are crowding the quota. Trimming what we can."
+          fi
 
-            TOTAL=$(echo "$RESP" | jq '.actions_caches | length')
-            [ "$TOTAL" -eq 0 ] && break
-
-            IDS=$(echo "$RESP" | jq -r '
-              .actions_caches[]
-              | select(.key | startswith("v0-rust-pr-"))
-              | .id
-            ')
-
-            if [ -n "$IDS" ]; then
-              for id in $IDS; do
-                if [ "$DELETED" -ge "$MAX_DELETE" ]; then
-                  echo "Reached MAX_DELETE=$MAX_DELETE, stopping."
-                  exit 0
-                fi
-                echo "Deleting cache $id"
-                gh api -X DELETE \
-                  "/repos/$OWNER/$REPO/actions/caches/$id" || true
-                DELETED=$((DELETED+1))
-              done
+          while IFS=$'\t' read -r id size key; do
+            [ -n "$id" ] || continue
+            [ "$FREED" -ge "$EXCESS" ] && break
+            if [ "$DELETED" -ge "$MAX_DELETE" ]; then
+              echo "Reached MAX_DELETE=$MAX_DELETE, stopping."
+              break
             fi
+            echo "Deleting cache $id ($size bytes): $key"
+            if gh api -X DELETE "/repos/$OWNER/$REPO/actions/caches/$id"; then
+              FREED=$((FREED+size))
+            else
+              echo "Delete failed for cache $id (racing eviction?) — not counting it as freed."
+            fi
+            DELETED=$((DELETED+1))
+          done <<<"$ELIGIBLE"
 
-            PAGE=$((PAGE+1))
-          done
-
-          echo "Deleted $DELETED PR cache(s)."
+          echo "Processed $DELETED delete(s), freed ~$FREED bytes."
 
   release:
     name: Publish crates
@@ -189,7 +212,7 @@ jobs:
           rustup show
 
       - name: Install nextest
-        uses: taiki-e/install-action@6ef672efc2b5aabc787a9e94baf4989aa02a97df # v2.70.3
+        uses: taiki-e/install-action@065d6a08a14e61e89fb0a4c10eecdbdef39c7d8e # v2.85.4
         with:
           tool: nextest
 

@@ -23,6 +23,10 @@ jobs:
   gts_validate:
     name: Validate GTS Identifiers
     runs-on: ubuntu-latest
+    env:
+      # Single source of truth for the pinned version — used by the cache key
+      # and the install command below.
+      GTS_VALIDATOR_VERSION: "0.10.1"
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -32,20 +36,30 @@ jobs:
           rustup show active-toolchain || rustup toolchain install
           rustup show
 
-      - name: Cache Cargo/target
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+      # The binary depends only on its pinned version, so the key carries
+      # nothing else. The previous rust-cache setup (cache-bin + registry
+      # snapshot) hashed the workspace Cargo.lock into its key, minting a new
+      # ~189 MB entry on every lockfile change (8 duplicates observed in the
+      # cache census) even though the binary itself never changed.
+      - name: Restore gts-validator binary
+        id: gts-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          # cache-bin caches ${CARGO_HOME}/bin, so the gts-validator binary is
-          # restored across runs instead of being recompiled from source every
-          # time (doc-only PRs were paying a multi-minute build otherwise).
-          cache-bin: true
-          cache-targets: false
-          shared-key: gts-validator-0.10.1
+          path: ~/.cargo/bin/gts-validator
+          key: gts-validator-bin-${{ env.GTS_VALIDATOR_VERSION }}-${{ runner.os }}
 
       - name: Install gts-validator
-        # Pinned + --locked for reproducibility. On a cache hit the binary is
-        # already present, so cargo install detects it and skips the compile.
-        run: cargo install gts-validator --version 0.10.1 --locked
+        if: steps.gts-cache.outputs.cache-hit != 'true'
+        # Pinned + --locked for reproducibility; skipped entirely when the
+        # cached binary for this exact version was restored.
+        run: cargo install gts-validator --version "$GTS_VALIDATOR_VERSION" --locked
+
+      - name: Save gts-validator binary
+        if: steps.gts-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cargo/bin/gts-validator
+          key: gts-validator-bin-${{ env.GTS_VALIDATOR_VERSION }}-${{ runner.os }}
 
       - name: Validate GTS identifiers
         run: make gts-docs
