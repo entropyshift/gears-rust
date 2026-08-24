@@ -128,3 +128,120 @@ jobs:
             }
 
             core.info('Cache cleanup complete.');
+
+      # Second pass, quota-driven rather than retention-driven. The pass above
+      # only removes entries that are BOTH surplus within their bucket AND
+      # older than the retention window, so a burst of active lineages can sit
+      # under the retention floor and still crowd the repo against GitHub's
+      # 10 GB limit — at which point GitHub evicts by its own LRU and takes the
+      # main-scope registry seed with it, making every PR start cold.
+      #
+      # This replaces the delete-every-PR-cache step that used to run in
+      # release-plz.yml on each release. That fired daily (releases plus
+      # failing-publish retries) and wiped caches wholesale, so PR restores
+      # missed even between two runs of the same PR. Trimming to a target,
+      # least-recently-used first, keeps recently used entries restorable.
+      - name: Trim least-recently-used caches to quota target
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Leaves ~3 GiB of headroom under GitHub's 10 GiB limit for the
+            // next warm/CI run's own writes before its LRU eviction kicks in.
+            const targetBytes = 7 * 1024 ** 3;
+            const maxDeletes = 500;
+
+            let page = 1;
+            const perPage = 100;
+            const allCaches = [];
+
+            while (true) {
+              let res;
+              try {
+                res = await github.rest.actions.getActionsCacheList({
+                  owner,
+                  repo,
+                  per_page: perPage,
+                  page,
+                });
+              } catch (err) {
+                core.error(`Failed to fetch cache list page ${page}: ${err.message}`);
+                throw new Error(`getActionsCacheList failed on page ${page}: ${err.message}`);
+              }
+
+              const batch = res.data.actions_caches ?? [];
+              allCaches.push(...batch);
+
+              if (batch.length < perPage) break;
+              page += 1;
+              if (page > 50) break;
+            }
+
+            const total = allCaches.reduce((sum, c) => sum + (c.size_in_bytes ?? 0), 0);
+            core.info(`Repo cache usage: ${total} bytes across ${allCaches.length} entries (target: ${targetBytes}).`);
+
+            if (total <= targetBytes) {
+              core.info('Under target — nothing to trim.');
+              return;
+            }
+
+            const tsOf = (c) => new Date(c.last_accessed_at ?? c.created_at).getTime();
+
+            // Protect the newest cargo-registry-<OS>-<lockhash> entry per OS.
+            // cache-warm.yml is their single writer, and every ci.yml job is
+            // restore-only against them, so dropping a live one converts every
+            // subsequent PR run into a cold `cargo fetch` — the exact cost this
+            // whole cache scheme exists to avoid. Older lockfile generations of
+            // the same prefix stay eligible.
+            const protectedIds = new Set();
+            const newestPerOs = new Map();
+            for (const c of allCaches) {
+              const m = (c.key ?? '').match(/^cargo-registry-([^-]+)-/);
+              if (!m) continue;
+              const prev = newestPerOs.get(m[1]);
+              if (!prev || tsOf(c) > tsOf(prev)) newestPerOs.set(m[1], c);
+            }
+            for (const c of newestPerOs.values()) protectedIds.add(c.id);
+
+            const eligible = allCaches
+              .filter((c) => !protectedIds.has(c.id))
+              .sort((a, b) => tsOf(a) - tsOf(b)); // least recently used first
+
+            const excess = total - targetBytes;
+            const eligibleTotal = eligible.reduce((sum, c) => sum + (c.size_in_bytes ?? 0), 0);
+            if (eligibleTotal < excess) {
+              core.warning(
+                `Eligible caches (${eligibleTotal} bytes) cannot cover the excess (${excess} bytes); ` +
+                `${protectedIds.size} protected registry seed(s) are excluded. Trimming what we can.`,
+              );
+            }
+
+            let freed = 0;
+            let deleted = 0;
+
+            // Entries are deleted whole, so the last one can free considerably
+            // more than the remaining excess. That overshoot is deliberate:
+            // skipping oversized entries to land nearer the target would spare
+            // the least-recently-used ones and delete more useful entries in
+            // their place. Extra headroom below the target is the better trade.
+            for (const c of eligible) {
+              if (freed >= excess) break;
+              if (deleted >= maxDeletes) {
+                core.info(`Reached maxDeletes=${maxDeletes}, stopping.`);
+                break;
+              }
+              core.info(`Deleting cache id=${c.id} key=${c.key} size=${c.size_in_bytes} last_accessed_at=${c.last_accessed_at ?? c.created_at}`);
+              try {
+                await github.rest.actions.deleteActionsCacheById({ owner, repo, cache_id: c.id });
+                freed += c.size_in_bytes ?? 0;
+              } catch (err) {
+                // Racing GitHub's own eviction is expected here and must not
+                // fail the run; just don't count the entry as freed.
+                core.warning(`Delete failed for cache id=${c.id} key=${c.key} (racing eviction?): ${err.message}`);
+              }
+              deleted += 1;
+            }
+
+            core.info(`Processed ${deleted} delete(s), freed ~${freed} bytes.`);
