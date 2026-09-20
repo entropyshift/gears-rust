@@ -38,10 +38,6 @@ jobs:
     name: API Contract Checks
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      # Must exist BEFORE the probe step's `sccache --start-server` — the
-      # server binds its storage backend (GHA cache vs local disk) at startup.
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -103,11 +99,20 @@ jobs:
 
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
+        # Step-level, NOT job-level: the variable must exist in the process
+        # that runs `--start-server` (the server fixes its storage backend
+        # there), but must not reach the sccache-action post step unless the
+        # probe succeeded. That post step runs `sccache --show-stats` and
+        # core.setFailed()s on error, so a job-level value turns an
+        # unavailable GHA backend into a job failure *after* every build step
+        # already passed on the plain-rustc fallback this probe provides.
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: |
-          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
-          # on the GHA cache backend (the backend is fixed at server startup).
           if sccache --start-server > /tmp/sccache-start.log 2>&1; then
+            # Propagate to the build steps *and* the post step, success only.
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
             echo "sccache failed, falling back to plain rustc; startup output:"
             cat /tmp/sccache-start.log || true

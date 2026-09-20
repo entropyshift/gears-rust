@@ -90,6 +90,14 @@ jobs:
               - 'testing/e2e/lib/sidecars.py'
               # Architecture-lint configuration (cargo gears lint reads it).
               - 'Gears.toml'
+              # Selects which tests each matrix leg runs (NEXTEST_PROFILE, below):
+              # a profile edit changes the executed set on every OS.
+              - '.config/nextest.toml'
+              # Read by `cargo gears lint --dylint`: DE0708 hasher allow-list and
+              # DE1101 exclusions, both designed to be edited on their own.
+              - 'dylint.toml'
+              # Lint config Gears.toml points at (`config = "lint.yml"`).
+              - 'config/lint.yml'
             fips:
               - 'libs/toolkit/**'
               - 'libs/toolkit-http/**'
@@ -123,9 +131,6 @@ jobs:
     timeout-minutes: 45
     env:
       RUSTFLAGS: "-C debuginfo=0"
-      # Must exist BEFORE the probe step's `sccache --start-server` — the
-      # server binds its storage backend (GHA cache vs local disk) at startup.
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -180,13 +185,20 @@ jobs:
 
       - name: Probe sccache & set RUSTC_WRAPPER
         shell: bash
+        # Step-level, NOT job-level: the variable must exist in the process
+        # that runs `--start-server` (the server fixes its storage backend
+        # there), but must not reach the sccache-action post step unless the
+        # probe succeeded. That post step runs `sccache --show-stats` and
+        # core.setFailed()s on error, so a job-level value turns an
+        # unavailable GHA backend into a job failure *after* every build step
+        # already passed on the plain-rustc fallback this probe provides.
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: |
-          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
-          # on the GHA cache backend (the backend is fixed at server startup —
-          # setting it after `--start-server` would silently leave the server
-          # on a per-runner local-disk cache). On probe failure: plain rustc.
           if sccache --start-server > /tmp/sccache-start.log 2>&1; then
+            # Propagate to the build steps *and* the post step, success only.
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
             echo "sccache failed, falling back to plain rustc; startup output:"
             cat /tmp/sccache-start.log || true
@@ -243,9 +255,6 @@ jobs:
       # sessions over identical fixtures with the same pinned toolchain on
       # every OS; the Ubuntu leg keeps full coverage. See .config/nextest.toml.
       NEXTEST_PROFILE: ${{ matrix.os == 'ubuntu-latest' && 'default' || 'no-trybuild' }}
-      # Must exist BEFORE the probe step's `sccache --start-server` — the
-      # server binds its storage backend (GHA cache vs local disk) at startup.
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Force LF in working tree (w/a for Windows)
         if: runner.os == 'Windows'
@@ -317,13 +326,20 @@ jobs:
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
         shell: bash
+        # Step-level, NOT job-level: the variable must exist in the process
+        # that runs `--start-server` (the server fixes its storage backend
+        # there), but must not reach the sccache-action post step unless the
+        # probe succeeded. That post step runs `sccache --show-stats` and
+        # core.setFailed()s on error, so a job-level value turns an
+        # unavailable GHA backend into a job failure *after* every build step
+        # already passed on the plain-rustc fallback this probe provides.
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: |
-          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
-          # on the GHA cache backend (the backend is fixed at server startup —
-          # setting it after `--start-server` would silently leave the server
-          # on a per-runner local-disk cache). On probe failure: plain rustc.
           if sccache --start-server > /tmp/sccache-start.log 2>&1; then
+            # Propagate to the build steps *and* the post step, success only.
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
             echo "sccache failed, falling back to plain rustc; startup output:"
             cat /tmp/sccache-start.log || true
@@ -359,9 +375,6 @@ jobs:
     timeout-minutes: 45
     env:
       RUSTFLAGS: "-C debuginfo=0"
-      # Must exist BEFORE the probe step's `sccache --start-server` — the
-      # server binds its storage backend (GHA cache vs local disk) at startup.
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -408,13 +421,20 @@ jobs:
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
         shell: bash
+        # Step-level, NOT job-level: the variable must exist in the process
+        # that runs `--start-server` (the server fixes its storage backend
+        # there), but must not reach the sccache-action post step unless the
+        # probe succeeded. That post step runs `sccache --show-stats` and
+        # core.setFailed()s on error, so a job-level value turns an
+        # unavailable GHA backend into a job failure *after* every build step
+        # already passed on the plain-rustc fallback this probe provides.
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: |
-          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
-          # on the GHA cache backend (the backend is fixed at server startup —
-          # setting it after `--start-server` would silently leave the server
-          # on a per-runner local-disk cache). On probe failure: plain rustc.
           if sccache --start-server > /tmp/sccache-start.log 2>&1; then
+            # Propagate to the build steps *and* the post step, success only.
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
             echo "sccache failed, falling back to plain rustc; startup output:"
             cat /tmp/sccache-start.log || true
@@ -506,9 +526,6 @@ jobs:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
     env:
       RUSTFLAGS: "-C debuginfo=0"
-      # Must exist BEFORE the probe step's `sccache --start-server` — the
-      # server binds its storage backend (GHA cache vs local disk) at startup.
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Force LF in working tree (w/a for Windows)
         if: runner.os == 'Windows'
@@ -571,13 +588,20 @@ jobs:
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
         shell: bash
+        # Step-level, NOT job-level: the variable must exist in the process
+        # that runs `--start-server` (the server fixes its storage backend
+        # there), but must not reach the sccache-action post step unless the
+        # probe succeeded. That post step runs `sccache --show-stats` and
+        # core.setFailed()s on error, so a job-level value turns an
+        # unavailable GHA backend into a job failure *after* every build step
+        # already passed on the plain-rustc fallback this probe provides.
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: |
-          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
-          # on the GHA cache backend (the backend is fixed at server startup —
-          # setting it after `--start-server` would silently leave the server
-          # on a per-runner local-disk cache). On probe failure: plain rustc.
           if sccache --start-server > /tmp/sccache-start.log 2>&1; then
+            # Propagate to the build steps *and* the post step, success only.
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
             echo "sccache failed, falling back to plain rustc; startup output:"
             cat /tmp/sccache-start.log || true
@@ -748,10 +772,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    env:
-      # Must exist BEFORE the probe step's `sccache --start-server` — the
-      # server binds its storage backend (GHA cache vs local disk) at startup.
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -791,13 +811,20 @@ jobs:
 
       - name: Probe sccache & set RUSTC_WRAPPER
         shell: bash
+        # Step-level, NOT job-level: the variable must exist in the process
+        # that runs `--start-server` (the server fixes its storage backend
+        # there), but must not reach the sccache-action post step unless the
+        # probe succeeded. That post step runs `sccache --show-stats` and
+        # core.setFailed()s on error, so a job-level value turns an
+        # unavailable GHA backend into a job failure *after* every build step
+        # already passed on the plain-rustc fallback this probe provides.
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: |
-          # SCCACHE_GHA_ENABLED is set as job-level env, so the server starts
-          # on the GHA cache backend (the backend is fixed at server startup —
-          # setting it after `--start-server` would silently leave the server
-          # on a per-runner local-disk cache). On probe failure: plain rustc.
           if sccache --start-server > /tmp/sccache-start.log 2>&1; then
+            # Propagate to the build steps *and* the post step, success only.
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
             echo "sccache failed, falling back to plain rustc; startup output:"
             cat /tmp/sccache-start.log || true
@@ -934,8 +961,30 @@ jobs:
       - name: Run architecture lints
         run: cargo gears lint --dylint
 
+      # `cargo-gears-<ver>-<OS>` is an immutable key: whatever lands under it
+      # first is what every later run in this scope gets, with no way to re-save.
+      # A cancelled run (routine — cancel-in-progress fires on every PR push)
+      # can interrupt the install or the driver build partway, so verify the
+      # payload is actually complete before writing it.
+      - name: Check cargo-gears payload is complete
+        id: gears-payload
+        if: ${{ !cancelled() && steps.cache-cargo-gears.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          if [[ -x "$HOME/.cargo/bin/cargo-gears" \
+             && -d "$HOME/.dylint_drivers" \
+             && -n "$(ls -A "$HOME/.dylint_drivers" 2>/dev/null)" ]]; then
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "complete=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::cargo-gears payload incomplete - not caching it."
+          fi
+
+      # `!cancelled()` rather than `always()`: still saves after a FAILING lint
+      # run (the fix-the-lint loop is exactly when reruns happen), but never
+      # after a cancelled one.
       - name: Save cargo-gears and dylint driver
-        if: always() && steps.cache-cargo-gears.outputs.cache-hit != 'true'
+        if: ${{ !cancelled() && steps.cache-cargo-gears.outputs.cache-hit != 'true' && steps.gears-payload.outputs.complete == 'true' }}
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |

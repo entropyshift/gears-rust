@@ -8,15 +8,44 @@
 # Excludes the compile-fail / trybuild-style suites: each is a serial rustc
 # session compiling fixture code with the same pinned toolchain on every OS,
 # so running them once (on the Ubuntu leg) preserves the signal while cutting
-# ~10-12 min from the Windows leg and ~8 min from macOS. Covered targets:
-#   - test(/compile_fail/): toolkit domain_model_compile_fail_tests,
-#     toolkit-canonical-errors ui_compile_fail, toolkit-db compile_fail_tests,
-#     event-broker-sdk typestate_builder_compile_failures_are_checked
-#   - binary(ui): trybuild UI harnesses (toolkit-db, toolkit-security,
-#     toolkit-canonical-errors, toolkit-odata-macros, ...)
-#   - binary(compile_tests): toolkit-odata-macros trybuild suite
-#   - binary(typed_builder_compilefail): toolkit trybuild suite
-#   - binary(prefix_customization): toolkit-gts suite that spawns sub-`cargo
-#     test` rebuilds to verify compile-time GTS_ID_PREFIX customization
+# ~10-12 min from the Windows leg and ~8 min from macOS.
+#
+# Every matcher below is exact (`binary(=...)`) or end-anchored (`test(/...$/)`).
+# The substring forms this file first shipped with swept in unrelated tests:
+#   - `binary(ui)` also matched bss-ledger's `postgres_inquiry` and
+#     `postgres_recognition_build` (7 tests). All are #[ignore]d behind Docker
+#     today, so no signal was actually lost — but nothing held that in place.
+#   - `test(/compile_fail/)` also matched four genuine runtime tests whose
+#     names merely contain "compile_failed":
+#       chat-engine     compile_failed_list_messages_returns_forbidden
+#       chat-engine     compile_failed_list_sessions_returns_forbidden
+#       account-mgmt    compile_failed_maps_to_cross_tenant_denied_403
+#       resource-group  enforcer_compile_failed_maps_to_access_denied
+#   - `binary(prefix_customization)` also dropped toolkit-gts's three cheap
+#     in-process Layer-1 tests; only the four Layer-2 ones below spawn a
+#     sub-`cargo test` and are worth excluding.
+#
+# Excluded targets, and why each is scoped the way it is:
+#   binary(=ui)                         trybuild UI harnesses — toolkit-db,
+#                                       toolkit-security, toolkit-canonical-errors,
+#                                       toolkit-odata-macros. One test each,
+#                                       all trybuild, so binary scope is exact.
+#   binary(=compile_tests)              toolkit-odata-macros trybuild suite (1 test)
+#   binary(=typed_builder_compilefail)  toolkit trybuild suite (1 test)
+#   domain_model_compile_fail_tests     toolkit. Name-scoped, not binary-scoped:
+#                                       binary `domain_model_tests` holds 9 other
+#                                       real tests.
+#   typestate_builder_compile_failures_are_checked
+#                                       event-broker-sdk. Name-scoped: binary
+#                                       `producer` holds 33 tests. The `$` anchor
+#                                       (no `^`) is deliberate — nextest names it
+#                                       `builder::typestate_builder_...`.
+#   default_prefix_is_gts_dot           toolkit-gts Layer-2 — each spawns a
+#   custom_prefix_acme_dot              sub-`cargo test` rebuild under a different
+#   custom_prefix_myco_dot              GTS_ID_PREFIX. The three Layer-1 tests in
+#   invalid_prefix_fails_to_compile     the same binary stay in.
+#
+# Kept on one line on purpose: it parses identically to the form this file
+# shipped with. If you reformat it, run `cargo nextest list -P no-trybuild`.
 [profile.no-trybuild]
-default-filter = "not (test(/compile_fail/) or binary(ui) or binary(compile_tests) or binary(typed_builder_compilefail) or binary(prefix_customization))"
+default-filter = "not (binary(=ui) or binary(=compile_tests) or binary(=typed_builder_compilefail) or test(/domain_model_compile_fail_tests$/) or test(/typestate_builder_compile_failures_are_checked$/) or test(/default_prefix_is_gts_dot$/) or test(/custom_prefix_acme_dot$/) or test(/custom_prefix_myco_dot$/) or test(/invalid_prefix_fails_to_compile$/))"
