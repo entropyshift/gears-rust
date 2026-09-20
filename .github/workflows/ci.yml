@@ -376,6 +376,20 @@ jobs:
     env:
       RUSTFLAGS: "-C debuginfo=0"
     steps:
+      # Restored for this job only. The branch drops free-disk-space elsewhere
+      # (runners start with ~88 GB free), but since that was measured upstream
+      # added container-heavy suites here — privileged k3s, Redis, PG19 — whose
+      # images land on the same volume as the build.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -440,8 +454,7 @@ jobs:
             cat /tmp/sccache-start.log || true
           fi
 
-      # free-disk-space cleanup was removed (runners start with ~88 GB free);
-      # this guard keeps disk headroom visible in logs in case that changes.
+      # Headroom after the cleanup step above, for the record.
       - name: Disk headroom (guard)
         shell: bash
         run: df -h .
@@ -681,24 +694,51 @@ jobs:
           rustup show active-toolchain || rustup toolchain install
           rustup show
 
-      - name: Cache Cargo/target
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # Was the last job on Swatinem/rust-cache. With cache-bin and
+      # cache-targets both false it stored exactly what the shared entry below
+      # holds -- crate sources and the git DB -- under a second key in a
+      # separate v0-rust-* lineage, competing for the same 10 GB quota the
+      # consolidation exists to free. cache-warm.yml is the single writer.
+      - name: Restore Cargo registry
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          cache-bin: false
-          cache-targets: false
-          shared-key: pr-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}-magika
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
 
       - name: Install sccache
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Probe sccache & set RUSTC_WRAPPER
         shell: bash
+        # Step-level, NOT job-level: the variable must exist in the process
+        # that runs `--start-server` (the server fixes its storage backend
+        # there), but must not reach the sccache-action post step unless the
+        # probe succeeded. That post step runs `sccache --show-stats` and
+        # core.setFailed()s on error, so a job-level value turns an
+        # unavailable GHA backend into a job failure *after* every build step
+        # already passed on the plain-rustc fallback this probe provides.
+        #
+        # Writing SCCACHE_GHA_ENABLED to GITHUB_ENV inside the probe, as this
+        # job used to, is too late: GITHUB_ENV only reaches *later* steps, so
+        # the server on the line above had already bound to a local disk cache
+        # that an ephemeral runner discards. RUSTC_WRAPPER was still set, so
+        # the job looked cached, logged no error, and recompiled the ort/ONNX
+        # tree from source every run.
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: |
-          if sccache --start-server >/dev/null 2>&1; then
+          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
+            # Propagate to the build steps *and* the post step, success only.
             echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
             echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
           else
-            echo "sccache failed, falling back to plain rustc"
+            echo "sccache failed, falling back to plain rustc; startup output:"
+            cat /tmp/sccache-start.log || true
           fi
 
       - name: Fetch ONNX Runtime shared library
@@ -773,6 +813,20 @@ jobs:
       contents: read
       id-token: write
     steps:
+      # Restored for this job only. The branch drops free-disk-space elsewhere
+      # (runners start with ~88 GB free), but since that was measured upstream
+      # added weight here — a three-pass instrumented
+      # llvm-cov build plus the k3s suites, all in one job.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -807,7 +861,7 @@ jobs:
             cargo-registry-${{ runner.os }}-
 
       - name: Install sccache
-        uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Probe sccache & set RUSTC_WRAPPER
         shell: bash
@@ -835,8 +889,7 @@ jobs:
         with:
           tool: cargo-llvm-cov, nextest
 
-      # free-disk-space cleanup was removed (runners start with ~88 GB free);
-      # this guard keeps disk headroom visible in logs in case that changes.
+      # Headroom after the cleanup step above, for the record.
       - name: Disk headroom (guard)
         shell: bash
         run: df -h .
