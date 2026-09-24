@@ -39,11 +39,25 @@ env:
   # Size of sccache's local-disk layer (the fallback when the GHA backend is
   # unavailable). 2G measurably thrashed within single jobs; 8G fits runners.
   SCCACHE_CACHE_SIZE: "8G"
+  # The server exits after 600 s idle by default. The test legs spend longer
+  # than that executing tests between the main build and
+  # `make test-fixtures-narrow`, so the server died mid-job and the post-step
+  # `--show-stats` covered only that last step (18 requests on Windows, not
+  # the ~1,400-crate build) — which misled an earlier round of analysis.
+  # 0 disables the idle exit; the runner tears the server down with the job.
+  SCCACHE_IDLE_TIMEOUT: "0"
   # Usually better determinism and smaller cache churn in CI.
   CARGO_INCREMENTAL: "0"
   # Pinned nightly toolchain used by the coverage job. Independent of the pin in
   # shear-nightly.yml — they happen to match today but need not.
   RUSTUP_TOOLCHAIN_NIGHTLY: nightly-2026-04-16
+  # cargo-gears binary that `make install-tools` (a prerequisite of every
+  # test target) would otherwise build from source in release profile on
+  # every runner: 6-12 min per job, serial, before the first test compiles.
+  # Must satisfy the Makefile's CARGO_GEARS_MIN_VERSION. Also the cache key
+  # (`cargo-gears-bin-<ver>-<OS>`), so a bump rotates the entry. The lint
+  # job overrides this with its own, older pin — see the note there.
+  CARGO_GEARS_VERSION: "0.0.7"
 
 jobs:
   # ── Change detection ──────────────────────────────────────────────────
@@ -319,6 +333,39 @@ jobs:
           restore-keys: |
             cargo-registry-${{ runner.os }}-
 
+      # Pinned cargo-gears binary for `make install-tools` (see the workflow-
+      # level CARGO_GEARS_VERSION). Restore-only on pull_request runs; on a miss
+      # the job builds it once and, outside pull_request runs, saves it so the
+      # main-branch scope seeds every later PR run (ci.yml runs on push: main).
+      # The key is immutable, so the save sits directly after the install and
+      # keeps the default success() guard: it never runs after a failed or
+      # cancelled install, so a partial binary cannot land under the key.
+      # Placed before the sccache probe on purpose: the rare source build runs
+      # on plain rustc rather than pushing release-profile objects of a tool
+      # build, which no other job can reuse, into the shared sccache namespace.
+      - name: Restore cargo-gears
+        id: cache-cargo-gears-bin
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/bin/cargo-gears
+            ~/.cargo/bin/cargo-gears.exe
+          key: cargo-gears-bin-${{ env.CARGO_GEARS_VERSION }}-${{ runner.os }}
+
+      - name: Install cargo-gears
+        if: steps.cache-cargo-gears-bin.outputs.cache-hit != 'true'
+        shell: bash
+        run: cargo install --locked cargo-gears@${{ env.CARGO_GEARS_VERSION }}
+
+      - name: Save cargo-gears
+        if: steps.cache-cargo-gears-bin.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/bin/cargo-gears
+            ~/.cargo/bin/cargo-gears.exe
+          key: cargo-gears-bin-${{ env.CARGO_GEARS_VERSION }}-${{ runner.os }}
+
       # Install sccache (cross-platform)
       - name: Install sccache
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
@@ -427,6 +474,31 @@ jobs:
           key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             cargo-registry-${{ runner.os }}-
+
+      # Pinned cargo-gears binary for `make install-tools`; rationale in the
+      # test job's copy of these three steps.
+      - name: Restore cargo-gears
+        id: cache-cargo-gears-bin
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/bin/cargo-gears
+            ~/.cargo/bin/cargo-gears.exe
+          key: cargo-gears-bin-${{ env.CARGO_GEARS_VERSION }}-${{ runner.os }}
+
+      - name: Install cargo-gears
+        if: steps.cache-cargo-gears-bin.outputs.cache-hit != 'true'
+        shell: bash
+        run: cargo install --locked cargo-gears@${{ env.CARGO_GEARS_VERSION }}
+
+      - name: Save cargo-gears
+        if: steps.cache-cargo-gears-bin.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/bin/cargo-gears
+            ~/.cargo/bin/cargo-gears.exe
+          key: cargo-gears-bin-${{ env.CARGO_GEARS_VERSION }}-${{ runner.os }}
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -596,6 +668,34 @@ jobs:
           key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             cargo-registry-${{ runner.os }}-
+
+      # Pinned cargo-gears binary for `make install-tools`; rationale in the
+      # test job's copy of these three steps. Linux only: it is the one lane
+      # that goes through a make target — macOS and Windows below call cargo
+      # directly, so a miss there would build the tool for nothing.
+      - name: Restore cargo-gears
+        if: runner.os == 'Linux'
+        id: cache-cargo-gears-bin
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/bin/cargo-gears
+            ~/.cargo/bin/cargo-gears.exe
+          key: cargo-gears-bin-${{ env.CARGO_GEARS_VERSION }}-${{ runner.os }}
+
+      - name: Install cargo-gears
+        if: runner.os == 'Linux' && steps.cache-cargo-gears-bin.outputs.cache-hit != 'true'
+        shell: bash
+        run: cargo install --locked cargo-gears@${{ env.CARGO_GEARS_VERSION }}
+
+      - name: Save cargo-gears
+        if: runner.os == 'Linux' && steps.cache-cargo-gears-bin.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/bin/cargo-gears
+            ~/.cargo/bin/cargo-gears.exe
+          key: cargo-gears-bin-${{ env.CARGO_GEARS_VERSION }}-${{ runner.os }}
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -971,6 +1071,10 @@ jobs:
     timeout-minutes: 30
     env:
       # Single knob for the tool version, the install pin, and the cache key.
+      # Deliberately overrides the workflow-level pin: the dylint driver
+      # toolchain installed below is tied to what this version's embedded
+      # lints were built against, so a bump here must re-validate that step.
+      # The test jobs cache only the binary under a separate `-bin-` key.
       CARGO_GEARS_VERSION: "0.0.2"
     steps:
       - name: Checkout
