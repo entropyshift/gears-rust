@@ -100,14 +100,12 @@ jobs:
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Probe sccache & set RUSTC_WRAPPER
-        shell: bash
-        run: |
-          if sccache --start-server >/dev/null 2>&1; then
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          else
-            echo "sccache failed, falling back to plain rustc"
-          fi
+        uses: ./.github/actions/sccache-probe
+        with:
+          r2-endpoint: ${{ vars.R2_ENDPOINT }}
+          r2-bucket: ${{ vars.R2_BUCKET }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       # Keep this version in sync with SHEAR_VERSION in the Makefile, so a local
       # `make shear` and this job reach the same verdict.

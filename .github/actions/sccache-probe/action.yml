@@ -1,0 +1,76 @@
+name: Probe sccache & set RUSTC_WRAPPER
+description: >-
+  Start the sccache server on the best available backend and enable it as
+  RUSTC_WRAPPER. Order: Cloudflare R2 (when credentials are provided), then
+  the GitHub Actions cache, then plain rustc. Never fails the job. Run after
+  mozilla-actions/sccache-action has installed the binary.
+
+inputs:
+  r2-endpoint:
+    description: R2 S3 endpoint, https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+    required: false
+    default: ""
+  r2-bucket:
+    description: R2 bucket name
+    required: false
+    default: ""
+  r2-access-key-id:
+    description: R2 API token access key id
+    required: false
+    default: ""
+  r2-secret-access-key:
+    description: R2 API token secret access key
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # The backend is fixed when the server starts, so its variables must be
+    # in *this* process. None of them is named CARGO_*: sccache hashes those
+    # into every Rust key (see the note at the top of ci.yml's env block).
+    #
+    # Only RUSTC_WRAPPER (and, on the GHA path, SCCACHE_GHA_ENABLED) goes to
+    # GITHUB_ENV, and only once the server is up. The R2 credentials stay in
+    # this step: the running server already holds them, and later steps (the
+    # build, tests, the sccache-action post step) only talk to that server.
+    # SCCACHE_IDLE_TIMEOUT=0 at workflow level keeps it alive for the job.
+    #
+    # The GHA path stays as the fallback for runs without the secrets (PRs
+    # from forks) and for a failed R2 start. It is what every job used before.
+    - name: Probe sccache & set RUSTC_WRAPPER
+      shell: bash
+      env:
+        R2_ENDPOINT: ${{ inputs.r2-endpoint }}
+        R2_BUCKET: ${{ inputs.r2-bucket }}
+        R2_ACCESS_KEY_ID: ${{ inputs.r2-access-key-id }}
+        R2_SECRET_ACCESS_KEY: ${{ inputs.r2-secret-access-key }}
+      run: |
+        start() {
+          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
+            return 0
+          fi
+          echo "sccache failed to start on the $1 backend; startup output:"
+          cat /tmp/sccache-start.log || true
+          sccache --stop-server > /dev/null 2>&1 || true
+          return 1
+        }
+
+        if [[ -n "$R2_ENDPOINT" && -n "$R2_BUCKET" \
+              && -n "$R2_ACCESS_KEY_ID" && -n "$R2_SECRET_ACCESS_KEY" ]] \
+           && SCCACHE_BUCKET="$R2_BUCKET" \
+              SCCACHE_ENDPOINT="$R2_ENDPOINT" \
+              SCCACHE_REGION=auto \
+              SCCACHE_S3_KEY_PREFIX=gears-rust/sccache/ \
+              AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
+              AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+              start r2; then
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          echo "::notice::sccache backend: Cloudflare R2"
+        elif SCCACHE_GHA_ENABLED=true start gha; then
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "::notice::sccache backend: GitHub Actions cache"
+        else
+          echo "::warning::sccache unavailable, building with plain rustc"
+        fi

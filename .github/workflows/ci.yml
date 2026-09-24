@@ -205,25 +205,12 @@ jobs:
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Probe sccache & set RUSTC_WRAPPER
-        shell: bash
-        # Step-level, NOT job-level: the variable must exist in the process
-        # that runs `--start-server` (the server fixes its storage backend
-        # there), but must not reach the sccache-action post step unless the
-        # probe succeeded. That post step runs `sccache --show-stats` and
-        # core.setFailed()s on error, so a job-level value turns an
-        # unavailable GHA backend into a job failure *after* every build step
-        # already passed on the plain-rustc fallback this probe provides.
-        env:
-          SCCACHE_GHA_ENABLED: "true"
-        run: |
-          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
-            # Propagate to the build steps *and* the post step, success only.
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          else
-            echo "sccache failed, falling back to plain rustc; startup output:"
-            cat /tmp/sccache-start.log || true
-          fi
+        uses: ./.github/actions/sccache-probe
+        with:
+          r2-endpoint: ${{ vars.R2_ENDPOINT }}
+          r2-bucket: ${{ vars.R2_BUCKET }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       # free-disk-space cleanup was removed (runners start with ~88 GB free);
       # this guard keeps disk headroom visible in logs in case that changes.
@@ -341,37 +328,20 @@ jobs:
             cargo-registry-${{ runner.os }}-
 
       # Pinned cargo-gears binary for `make install-tools` (see the workflow-
-      # level GEARS_CLI_VERSION). Restore-only on pull_request runs; on a miss
-      # the job builds it once and, outside pull_request runs, saves it so the
-      # main-branch scope seeds every later PR run (ci.yml runs on push: main).
-      # The key is immutable, so the save sits directly after the install and
-      # keeps the default success() guard: it never runs after a failed or
-      # cancelled install, so a partial binary cannot land under the key.
-      # Placed before the sccache probe on purpose: the rare source build runs
-      # on plain rustc rather than pushing release-profile objects of a tool
-      # build, which no other job can reuse, into the shared sccache namespace.
-      - name: Restore cargo-gears
-        id: cache-cargo-gears-bin
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            ~/.cargo/bin/cargo-gears
-            ~/.cargo/bin/cargo-gears.exe
-          key: cargo-gears-bin-${{ env.GEARS_CLI_VERSION }}-${{ runner.os }}
-
+      # level GEARS_CLI_VERSION). Kept in Cloudflare R2 when the R2 secrets
+      # are available; runs without them (PRs from forks) use the GitHub
+      # Actions cache, restore-only on pull_request. Storage details and the
+      # partial-binary guards are in the action. Must stay before the sccache
+      # probe: see the action for why the source build skips sccache.
       - name: Install cargo-gears
-        if: steps.cache-cargo-gears-bin.outputs.cache-hit != 'true'
-        shell: bash
-        run: cargo install --locked cargo-gears@${{ env.GEARS_CLI_VERSION }}
-
-      - name: Save cargo-gears
-        if: steps.cache-cargo-gears-bin.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: ./.github/actions/cargo-gears-bin
         with:
-          path: |
-            ~/.cargo/bin/cargo-gears
-            ~/.cargo/bin/cargo-gears.exe
-          key: cargo-gears-bin-${{ env.GEARS_CLI_VERSION }}-${{ runner.os }}
+          version: ${{ env.GEARS_CLI_VERSION }}
+          save-gha: ${{ github.event_name != 'pull_request' }}
+          r2-endpoint: ${{ vars.R2_ENDPOINT }}
+          r2-bucket: ${{ vars.R2_BUCKET }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -379,25 +349,12 @@ jobs:
 
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
-        shell: bash
-        # Step-level, NOT job-level: the variable must exist in the process
-        # that runs `--start-server` (the server fixes its storage backend
-        # there), but must not reach the sccache-action post step unless the
-        # probe succeeded. That post step runs `sccache --show-stats` and
-        # core.setFailed()s on error, so a job-level value turns an
-        # unavailable GHA backend into a job failure *after* every build step
-        # already passed on the plain-rustc fallback this probe provides.
-        env:
-          SCCACHE_GHA_ENABLED: "true"
-        run: |
-          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
-            # Propagate to the build steps *and* the post step, success only.
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          else
-            echo "sccache failed, falling back to plain rustc; startup output:"
-            cat /tmp/sccache-start.log || true
-          fi
+        uses: ./.github/actions/sccache-probe
+        with:
+          r2-endpoint: ${{ vars.R2_ENDPOINT }}
+          r2-bucket: ${{ vars.R2_BUCKET }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       # free-disk-space cleanup was removed (runners start with ~88 GB free);
       # this guard keeps disk headroom visible in logs in case that changes.
@@ -482,30 +439,17 @@ jobs:
           restore-keys: |
             cargo-registry-${{ runner.os }}-
 
-      # Pinned cargo-gears binary for `make install-tools`; rationale in the
-      # test job's copy of these three steps.
-      - name: Restore cargo-gears
-        id: cache-cargo-gears-bin
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            ~/.cargo/bin/cargo-gears
-            ~/.cargo/bin/cargo-gears.exe
-          key: cargo-gears-bin-${{ env.GEARS_CLI_VERSION }}-${{ runner.os }}
-
+      # Pinned cargo-gears binary for `make install-tools`; rationale at the
+      # test job's copy of this step.
       - name: Install cargo-gears
-        if: steps.cache-cargo-gears-bin.outputs.cache-hit != 'true'
-        shell: bash
-        run: cargo install --locked cargo-gears@${{ env.GEARS_CLI_VERSION }}
-
-      - name: Save cargo-gears
-        if: steps.cache-cargo-gears-bin.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: ./.github/actions/cargo-gears-bin
         with:
-          path: |
-            ~/.cargo/bin/cargo-gears
-            ~/.cargo/bin/cargo-gears.exe
-          key: cargo-gears-bin-${{ env.GEARS_CLI_VERSION }}-${{ runner.os }}
+          version: ${{ env.GEARS_CLI_VERSION }}
+          save-gha: ${{ github.event_name != 'pull_request' }}
+          r2-endpoint: ${{ vars.R2_ENDPOINT }}
+          r2-bucket: ${{ vars.R2_BUCKET }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -513,25 +457,12 @@ jobs:
 
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
-        shell: bash
-        # Step-level, NOT job-level: the variable must exist in the process
-        # that runs `--start-server` (the server fixes its storage backend
-        # there), but must not reach the sccache-action post step unless the
-        # probe succeeded. That post step runs `sccache --show-stats` and
-        # core.setFailed()s on error, so a job-level value turns an
-        # unavailable GHA backend into a job failure *after* every build step
-        # already passed on the plain-rustc fallback this probe provides.
-        env:
-          SCCACHE_GHA_ENABLED: "true"
-        run: |
-          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
-            # Propagate to the build steps *and* the post step, success only.
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          else
-            echo "sccache failed, falling back to plain rustc; startup output:"
-            cat /tmp/sccache-start.log || true
-          fi
+        uses: ./.github/actions/sccache-probe
+        with:
+          r2-endpoint: ${{ vars.R2_ENDPOINT }}
+          r2-bucket: ${{ vars.R2_BUCKET }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       # Headroom after the cleanup step above, for the record.
       - name: Disk headroom (guard)
@@ -676,33 +607,20 @@ jobs:
           restore-keys: |
             cargo-registry-${{ runner.os }}-
 
-      # Pinned cargo-gears binary for `make install-tools`; rationale in the
-      # test job's copy of these three steps. Linux only: it is the one lane
+      # Pinned cargo-gears binary for `make install-tools`; rationale at the
+      # test job's copy of this step. Linux only: it is the one lane
       # that goes through a make target — macOS and Windows below call cargo
       # directly, so a miss there would build the tool for nothing.
-      - name: Restore cargo-gears
-        if: runner.os == 'Linux'
-        id: cache-cargo-gears-bin
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            ~/.cargo/bin/cargo-gears
-            ~/.cargo/bin/cargo-gears.exe
-          key: cargo-gears-bin-${{ env.GEARS_CLI_VERSION }}-${{ runner.os }}
-
       - name: Install cargo-gears
-        if: runner.os == 'Linux' && steps.cache-cargo-gears-bin.outputs.cache-hit != 'true'
-        shell: bash
-        run: cargo install --locked cargo-gears@${{ env.GEARS_CLI_VERSION }}
-
-      - name: Save cargo-gears
-        if: runner.os == 'Linux' && steps.cache-cargo-gears-bin.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/cargo-gears-bin
         with:
-          path: |
-            ~/.cargo/bin/cargo-gears
-            ~/.cargo/bin/cargo-gears.exe
-          key: cargo-gears-bin-${{ env.GEARS_CLI_VERSION }}-${{ runner.os }}
+          version: ${{ env.GEARS_CLI_VERSION }}
+          save-gha: ${{ github.event_name != 'pull_request' }}
+          r2-endpoint: ${{ vars.R2_ENDPOINT }}
+          r2-bucket: ${{ vars.R2_BUCKET }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -710,25 +628,12 @@ jobs:
 
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
-        shell: bash
-        # Step-level, NOT job-level: the variable must exist in the process
-        # that runs `--start-server` (the server fixes its storage backend
-        # there), but must not reach the sccache-action post step unless the
-        # probe succeeded. That post step runs `sccache --show-stats` and
-        # core.setFailed()s on error, so a job-level value turns an
-        # unavailable GHA backend into a job failure *after* every build step
-        # already passed on the plain-rustc fallback this probe provides.
-        env:
-          SCCACHE_GHA_ENABLED: "true"
-        run: |
-          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
-            # Propagate to the build steps *and* the post step, success only.
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          else
-            echo "sccache failed, falling back to plain rustc; startup output:"
-            cat /tmp/sccache-start.log || true
-          fi
+        uses: ./.github/actions/sccache-probe
+        with:
+          r2-endpoint: ${{ vars.R2_ENDPOINT }}
+          r2-bucket: ${{ vars.R2_BUCKET }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       # free-disk-space cleanup was removed (runners start with ~88 GB free);
       # this guard keeps disk headroom visible in logs in case that changes.
@@ -824,32 +729,12 @@ jobs:
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Probe sccache & set RUSTC_WRAPPER
-        shell: bash
-        # Step-level, NOT job-level: the variable must exist in the process
-        # that runs `--start-server` (the server fixes its storage backend
-        # there), but must not reach the sccache-action post step unless the
-        # probe succeeded. That post step runs `sccache --show-stats` and
-        # core.setFailed()s on error, so a job-level value turns an
-        # unavailable GHA backend into a job failure *after* every build step
-        # already passed on the plain-rustc fallback this probe provides.
-        #
-        # Writing SCCACHE_GHA_ENABLED to GITHUB_ENV inside the probe, as this
-        # job used to, is too late: GITHUB_ENV only reaches *later* steps, so
-        # the server on the line above had already bound to a local disk cache
-        # that an ephemeral runner discards. RUSTC_WRAPPER was still set, so
-        # the job looked cached, logged no error, and recompiled the ort/ONNX
-        # tree from source every run.
-        env:
-          SCCACHE_GHA_ENABLED: "true"
-        run: |
-          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
-            # Propagate to the build steps *and* the post step, success only.
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          else
-            echo "sccache failed, falling back to plain rustc; startup output:"
-            cat /tmp/sccache-start.log || true
-          fi
+        uses: ./.github/actions/sccache-probe
+        with:
+          r2-endpoint: ${{ vars.R2_ENDPOINT }}
+          r2-bucket: ${{ vars.R2_BUCKET }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       - name: Fetch ONNX Runtime shared library
         shell: bash
@@ -976,25 +861,12 @@ jobs:
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Probe sccache & set RUSTC_WRAPPER
-        shell: bash
-        # Step-level, NOT job-level: the variable must exist in the process
-        # that runs `--start-server` (the server fixes its storage backend
-        # there), but must not reach the sccache-action post step unless the
-        # probe succeeded. That post step runs `sccache --show-stats` and
-        # core.setFailed()s on error, so a job-level value turns an
-        # unavailable GHA backend into a job failure *after* every build step
-        # already passed on the plain-rustc fallback this probe provides.
-        env:
-          SCCACHE_GHA_ENABLED: "true"
-        run: |
-          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
-            # Propagate to the build steps *and* the post step, success only.
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          else
-            echo "sccache failed, falling back to plain rustc; startup output:"
-            cat /tmp/sccache-start.log || true
-          fi
+        uses: ./.github/actions/sccache-probe
+        with:
+          r2-endpoint: ${{ vars.R2_ENDPOINT }}
+          r2-bucket: ${{ vars.R2_BUCKET }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@9114bf4d891761788c546334fd37538eae1bf8b3 # v2.87.16

@@ -1,0 +1,111 @@
+name: Install pinned cargo-gears
+description: >-
+  Put a prebuilt cargo-gears binary in ~/.cargo/bin for `make install-tools`,
+  building it from source only on a miss. Stored in Cloudflare R2 when
+  credentials are provided, otherwise in the GitHub Actions cache.
+
+inputs:
+  version:
+    description: cargo-gears version (must satisfy the Makefile's CARGO_GEARS_MIN_VERSION)
+    required: true
+  save-gha:
+    description: Save to the GitHub Actions cache on a miss (the R2 path always saves)
+    required: false
+    default: "false"
+  r2-endpoint:
+    description: R2 S3 endpoint, https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+    required: false
+    default: ""
+  r2-bucket:
+    description: R2 bucket name
+    required: false
+    default: ""
+  r2-access-key-id:
+    description: R2 API token access key id
+    required: false
+    default: ""
+  r2-secret-access-key:
+    description: R2 API token secret access key
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # Runs before the sccache probe on purpose: the rare source build uses
+    # plain rustc rather than pushing release-profile objects of a tool build,
+    # which no other job can reuse, into the shared sccache namespace.
+    #
+    # R2 path. The object is `<prefix>/<version>/<OS>/cargo-gears[.exe]`, so a
+    # version bump is a new object. The upload runs only after a successful
+    # install (set -e), and an S3 PUT is atomic, so a cancelled job cannot
+    # leave a partial binary under the key. Jobs that miss at the same time
+    # all upload the same build; the last write wins, harmlessly.
+    - name: cargo-gears via R2
+      if: inputs.r2-access-key-id != '' && inputs.r2-secret-access-key != '' && inputs.r2-endpoint != '' && inputs.r2-bucket != ''
+      shell: bash
+      env:
+        GEARS_VERSION: ${{ inputs.version }}
+        R2_ENDPOINT: ${{ inputs.r2-endpoint }}
+        R2_BUCKET: ${{ inputs.r2-bucket }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.r2-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.r2-secret-access-key }}
+        AWS_DEFAULT_REGION: auto
+        # Newer AWS CLI releases send checksum headers by default that R2 does
+        # not fully support; only send them when an operation requires it.
+        AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+        AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      run: |
+        set -euo pipefail
+        exe=""
+        bin_dir="$HOME/.cargo/bin"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          exe=".exe"
+          # aws.exe is a native Windows program: hand it a Windows path and
+          # keep MSYS from rewriting the s3:// URL.
+          bin_dir="$(cygpath -w "$bin_dir")"
+          export MSYS_NO_PATHCONV=1
+        fi
+        mkdir -p "$HOME/.cargo/bin"
+        local_bin="$bin_dir/cargo-gears$exe"
+        remote="s3://$R2_BUCKET/gears-rust/tools/cargo-gears/$GEARS_VERSION/$RUNNER_OS/cargo-gears$exe"
+        s3() { aws s3 cp --endpoint-url "$R2_ENDPOINT" --only-show-errors "$@"; }
+
+        if s3 "$remote" "$local_bin"; then
+          chmod +x "$HOME/.cargo/bin/cargo-gears$exe"
+          echo "::notice::cargo-gears $GEARS_VERSION restored from R2"
+        else
+          echo "cargo-gears $GEARS_VERSION not in R2 yet; building from source"
+          cargo install --locked "cargo-gears@$GEARS_VERSION"
+          s3 "$local_bin" "$remote" \
+            || echo "::warning::could not upload cargo-gears to R2"
+        fi
+        "$HOME/.cargo/bin/cargo-gears$exe" --version || true
+
+    # GitHub Actions cache path, for runs without the R2 secrets (PRs from
+    # forks). Restore-only unless save-gha is set. The key is immutable, so
+    # the save sits directly after the install and keeps the default
+    # success() guard: a failed or cancelled install never lands under it.
+    - name: Restore cargo-gears
+      id: gha-restore
+      if: inputs.r2-access-key-id == '' || inputs.r2-secret-access-key == '' || inputs.r2-endpoint == '' || inputs.r2-bucket == ''
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ~/.cargo/bin/cargo-gears
+          ~/.cargo/bin/cargo-gears.exe
+        key: cargo-gears-bin-${{ inputs.version }}-${{ runner.os }}
+
+    - name: Install cargo-gears
+      if: steps.gha-restore.outcome == 'success' && steps.gha-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: cargo install --locked "cargo-gears@${{ inputs.version }}"
+
+    - name: Save cargo-gears
+      if: steps.gha-restore.outcome == 'success' && steps.gha-restore.outputs.cache-hit != 'true' && inputs.save-gha == 'true'
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ~/.cargo/bin/cargo-gears
+          ~/.cargo/bin/cargo-gears.exe
+        key: cargo-gears-bin-${{ inputs.version }}-${{ runner.os }}
