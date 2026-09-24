@@ -811,7 +811,9 @@ jobs:
       || needs.changes.outputs.ci == 'true'
       || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # A cold-cache fork run completed all three test passes near minute 44;
+    # allow time for coverage report generation and artifact upload as well.
+    timeout-minutes: 90
     permissions:
       contents: read
       id-token: write
