@@ -380,8 +380,51 @@ jobs:
         shell: bash
         run: df -h .
 
+      # DIAG (fork-only, drop before upstream): runner hardware and first-exec
+      # cost of freshly built binaries on macOS.
+      - name: "DIAG: macOS runner probe"
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        shell: bash
+        env:
+          RUSTC_WRAPPER: ""
+        run: |
+          sysctl -n machdep.cpu.brand_string hw.ncpu hw.perflevel0.physicalcpu hw.memsize || true
+          sw_vers || true
+          DevToolsSecurity -status || true
+          spctl --status || true
+          d="$RUNNER_TEMP/exec-probe"; mkdir -p "$d"; cd "$d"
+          printf 'fn main() {}\n' > h.rs
+          rustc -O h.rs -o h0
+          for i in 1 2 3 4 5; do
+            cp h0 "h$i"
+            s=$(python3 -c 'import time; print(time.time())'); ./"h$i"
+            m=$(python3 -c 'import time; print(time.time())'); ./"h$i"
+            e=$(python3 -c 'import time; print(time.time())')
+            python3 -c "print(f'copy $i: first exec {($m-$s)*1000:.0f} ms, second {($e-$m)*1000:.0f} ms')"
+          done
+          for i in 1 2 3; do
+            printf 'fn main() { println!("%s"); }\n' "$i" > "n$i.rs"; rustc -O "n$i.rs" -o "n$i"
+            s=$(python3 -c 'import time; print(time.time())'); ./"n$i" >/dev/null
+            m=$(python3 -c 'import time; print(time.time())'); ./"n$i" >/dev/null
+            e=$(python3 -c 'import time; print(time.time())')
+            python3 -c "print(f'new binary $i: first exec {($m-$s)*1000:.0f} ms, second {($e-$m)*1000:.0f} ms')"
+          done
+
+      # DIAG (fork-only): same command as `make test-no-macros`, plus --timings.
       - name: cargo test (no macros)
-        run: make test-no-macros
+        shell: bash
+        run: |
+          make install-tools
+          cargo nextest run --workspace --exclude cf-gears-toolkit-macros-tests --exclude cf-gears-toolkit-db-macros --timings
+
+      - name: "DIAG: upload cargo timings"
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cargo-timings-${{ runner.os }}
+          path: target/cargo-timings/cargo-timing.html
+          retention-days: 7
 
       # `bss-fixtures` is the only crate in the tree whose *production* surface
       # is the narrow one: pricing's `FixtureGate` inherits it with
