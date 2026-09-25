@@ -403,21 +403,26 @@ jobs:
               print(f"  0x{lo:x}-0x{hi:x} ({hi - lo + 1} B) in {where(lo)}: {a[lo:hi+1][:24].hex()} vs {b[lo:hi+1][:24].hex()}")
           if len(runs) > 15: print(f"  ... {len(runs)} differing ranges in total")
           PY
-          for variant in plain brepro-dash brepro-slash; do
+          ver=$(awk '/^name = "thiserror"$/{getline; gsub(/version = |"/,""); print}' Cargo.lock | sort -V | tail -1)
+          for variant in brepro fix-a-build-override-strip fix-b-global-strip; do
+            unset CARGO_PROFILE_DEV_BUILD_OVERRIDE_STRIP
             case $variant in
-              plain)        flags="-C debuginfo=0 -C linker=lld-link" ;;
-              brepro-dash)  flags="-C debuginfo=0 -C linker=lld-link -C link-arg=-Brepro" ;;
-              brepro-slash) flags="-C debuginfo=0 -C linker=lld-link -C link-arg=/Brepro" ;;
+              brepro) flags="-C debuginfo=0 -C linker=lld-link -C link-arg=-Brepro" ;;
+              fix-a-build-override-strip)
+                flags="-C debuginfo=0 -C linker=lld-link -C link-arg=-Brepro"
+                export CARGO_PROFILE_DEV_BUILD_OVERRIDE_STRIP=debuginfo ;;
+              fix-b-global-strip) flags="-C debuginfo=0 -C strip=debuginfo -C linker=lld-link -C link-arg=-Brepro" ;;
             esac
             export CARGO_TARGET_DIR="$RUNNER_TEMP/pm-$variant" RUSTFLAGS="$flags"
-            echo "=== $variant: RUSTFLAGS=$RUSTFLAGS"
-            cargo build -q -p serde_derive
-            cp "$(ls "$CARGO_TARGET_DIR"/debug/deps/serde_derive-*.dll | head -1)" "$RUNNER_TEMP/$variant-1.dll"
+            echo "=== $variant: RUSTFLAGS=$RUSTFLAGS build-override-strip=${CARGO_PROFILE_DEV_BUILD_OVERRIDE_STRIP:-unset} thiserror@$ver"
+            cargo build -q -p "thiserror@$ver"
+            dll="$(ls "$CARGO_TARGET_DIR"/debug/deps/thiserror_impl-*.dll | head -1)"
+            ls "$CARGO_TARGET_DIR"/debug/deps/thiserror_impl-* | sed 's/.*\///'
+            cp "$dll" "$RUNNER_TEMP/$variant-1.dll"
             sleep 3
-            cargo clean -q -p serde_derive
-            cargo build -q -p serde_derive
-            cp "$(ls "$CARGO_TARGET_DIR"/debug/deps/serde_derive-*.dll | head -1)" "$RUNNER_TEMP/$variant-2.dll"
-            sha256sum "$RUNNER_TEMP/$variant-1.dll" "$RUNNER_TEMP/$variant-2.dll"
+            cargo clean -q -p thiserror-impl
+            cargo build -q -p "thiserror@$ver"
+            cp "$(ls "$CARGO_TARGET_DIR"/debug/deps/thiserror_impl-*.dll | head -1)" "$RUNNER_TEMP/$variant-2.dll"
             python "$RUNNER_TEMP/pe_diff.py" "$RUNNER_TEMP/$variant-1.dll" "$RUNNER_TEMP/$variant-2.dll"
           done
 
