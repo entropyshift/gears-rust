@@ -239,7 +239,7 @@ jobs:
         run: make clippy
 
   test:
-    name: Test Suite (${{ matrix.os }})
+    name: Test Suite (${{ matrix.os }}${{ matrix.diag_jobs && format(', jobs={0}', matrix.diag_jobs) || '' }})
     needs: changes
     if: >-
       !cancelled()
@@ -256,6 +256,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
+        # DIAG (fork-only, drop): a second macOS leg with 2 build jobs.
+        include:
+          - os: macos-latest
+            diag_jobs: '2'
     env:
       # lld-link on Windows: 329 test binaries get linked and links are the
       # one phase sccache can never cache; lld is typically 2-5x faster than
@@ -380,51 +384,27 @@ jobs:
         shell: bash
         run: df -h .
 
-      # DIAG (fork-only, drop before upstream): runner hardware and first-exec
-      # cost of freshly built binaries on macOS.
-      - name: "DIAG: macOS runner probe"
-        if: runner.os == 'macOS'
-        continue-on-error: true
-        shell: bash
-        env:
-          RUSTC_WRAPPER: ""
-        run: |
-          sysctl -n machdep.cpu.brand_string hw.ncpu hw.perflevel0.physicalcpu hw.memsize || true
-          sw_vers || true
-          DevToolsSecurity -status || true
-          spctl --status || true
-          d="$RUNNER_TEMP/exec-probe"; mkdir -p "$d"; cd "$d"
-          printf 'fn main() {}\n' > h.rs
-          rustc -O h.rs -o h0
-          for i in 1 2 3 4 5; do
-            cp h0 "h$i"
-            s=$(python3 -c 'import time; print(time.time())'); ./"h$i"
-            m=$(python3 -c 'import time; print(time.time())'); ./"h$i"
-            e=$(python3 -c 'import time; print(time.time())')
-            python3 -c "print(f'copy $i: first exec {($m-$s)*1000:.0f} ms, second {($e-$m)*1000:.0f} ms')"
-          done
-          for i in 1 2 3; do
-            printf 'fn main() { println!("%s"); }\n' "$i" > "n$i.rs"; rustc -O "n$i.rs" -o "n$i"
-            s=$(python3 -c 'import time; print(time.time())'); ./"n$i" >/dev/null
-            m=$(python3 -c 'import time; print(time.time())'); ./"n$i" >/dev/null
-            e=$(python3 -c 'import time; print(time.time())')
-            python3 -c "print(f'new binary $i: first exec {($m-$s)*1000:.0f} ms, second {($e-$m)*1000:.0f} ms')"
-          done
-
-      # DIAG (fork-only): same command as `make test-no-macros`, plus --timings.
+      # DIAG (fork-only, drop): memory pressure during the macOS build, and
+      # an optional CARGO_BUILD_JOBS override (not part of sccache keys).
       - name: cargo test (no macros)
         shell: bash
         run: |
-          make install-tools
-          cargo nextest run --workspace --exclude cf-gears-toolkit-macros-tests --exclude cf-gears-toolkit-db-macros --timings
-
-      - name: "DIAG: upload cargo timings"
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: cargo-timings-${{ runner.os }}
-          path: target/cargo-timings/cargo-timing.html
-          retention-days: 7
+          if [[ -n "${{ matrix.diag_jobs }}" ]]; then export CARGO_BUILD_JOBS="${{ matrix.diag_jobs }}"; fi
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            ( while true; do
+                echo "$(date -u +%H:%M:%S) $(sysctl -n vm.swapusage) | $(memory_pressure | tail -1)"
+                sleep 30
+              done ) > "$RUNNER_TEMP/mem.log" 2>&1 &
+            sampler=$!
+          fi
+          rc=0; make test-no-macros || rc=$?
+          if [[ -n "${sampler:-}" ]]; then
+            kill "$sampler" || true
+            echo "::group::memory samples (CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-default})"
+            cat "$RUNNER_TEMP/mem.log"
+            echo "::endgroup::"
+          fi
+          exit $rc
 
       # `bss-fixtures` is the only crate in the tree whose *production* surface
       # is the narrow one: pricing's `FixtureGate` inherits it with
