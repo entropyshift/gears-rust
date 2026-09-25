@@ -261,20 +261,7 @@ jobs:
       # one phase sccache can never cache; lld is typically 2-5x faster than
       # link.exe. NOTE: changing RUSTFLAGS changes sccache hashes, so the
       # first Windows run after this change recompiles from cold.
-      #
-      # /Brepro makes Windows links reproducible. Without it the linker stamps
-      # the current time into every PE header and derives the PDB GUID from
-      # it, so each proc-macro DLL differs byte-for-byte on every run.
-      # Proc-macros can't be cached, so they are rebuilt every run, and
-      # sccache hashes the *contents* of every --extern into the key of the
-      # crate using it: every crate with a direct proc-macro dependency (181
-      # in this workspace) got a new key each run. That was the Windows leg's
-      # steady ~81% Rust hit rate (179-187 misses per warm run) against
-      # ~99.9% on Linux and macOS, whose linkers are already reproducible.
-      # rustc passes /Brepro only when building itself (bootstrap). Spelled
-      # `-Brepro` (lld-link takes either prefix) so MSYS path conversion in
-      # the bash steps cannot rewrite a leading `/` into a Windows path.
-      RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C debuginfo=0 -C linker=lld-link -C link-arg=-Brepro' || '-C debuginfo=0' }}
+      RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C debuginfo=0 -C linker=lld-link' || '-C debuginfo=0' }}
       # Every leg skips the trybuild/compile-fail suites — serial rustc
       # sessions over identical fixtures with the same pinned toolchain on
       # every OS. The `trybuild` job below runs them once, on Linux, in
