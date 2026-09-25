@@ -3,12 +3,17 @@
 # Profile selection in CI comes from the NEXTEST_PROFILE env var set per
 # matrix leg in .github/workflows/ci.yml.
 
-# `no-trybuild` — used by the Windows/macOS Test Suite legs.
+# `no-trybuild` — used by every Test Suite leg (Ubuntu, Windows, macOS).
+# `trybuild-only` — its exact complement, used by the separate Trybuild job
+# (`make test-trybuild`).
 #
-# Excludes the compile-fail / trybuild-style suites: each is a serial rustc
-# session compiling fixture code with the same pinned toolchain on every OS,
-# so running them once (on the Ubuntu leg) preserves the signal while cutting
-# ~10-12 min from the Windows leg and ~8 min from macOS.
+# The compile-fail / trybuild-style suites are serial rustc sessions compiling
+# fixture code with the same pinned toolchain on every OS, so running them
+# once, on Linux, keeps the signal. They used to run inside the Ubuntu leg:
+# ~1,090 s of test time between them, the slowest alone 326 s, and the last
+# to finish set the end of that leg's 989 s test phase (run 36070999177;
+# Windows, without them, took 573 s). In their own job they run alongside
+# the legs instead.
 #
 # Every matcher below is exact (`binary(=...)`) or end-anchored (`test(/...$/)`).
 # The substring forms this file first shipped with swept in unrelated tests:
@@ -47,5 +52,15 @@
 #
 # Kept on one line on purpose: it parses identically to the form this file
 # shipped with. If you reformat it, run `cargo nextest list -P no-trybuild`.
+#
+# The two filters must stay exact complements, or a suite runs twice or
+# nowhere. `make test-trybuild` checks that before running (script:
+# tools/scripts/check_trybuild_profiles.py), and also that every `binary(=…)`
+# name below is in the Makefile's TRYBUILD_TEST_TARGETS: that list limits the
+# job's build to the binaries holding these suites. A name-scoped entry
+# (`test(/…$/)`) needs its binary added there by hand.
 [profile.no-trybuild]
 default-filter = "not (binary(=ui) or binary(=compile_tests) or binary(=typed_builder_compilefail) or test(/domain_model_compile_fail_tests$/) or test(/typestate_builder_compile_failures_are_checked$/) or test(/default_prefix_is_gts_dot$/) or test(/custom_prefix_acme_dot$/) or test(/custom_prefix_myco_dot$/) or test(/invalid_prefix_fails_to_compile$/))"
+
+[profile.trybuild-only]
+default-filter = "binary(=ui) or binary(=compile_tests) or binary(=typed_builder_compilefail) or test(/domain_model_compile_fail_tests$/) or test(/typestate_builder_compile_failures_are_checked$/) or test(/default_prefix_is_gts_dot$/) or test(/custom_prefix_acme_dot$/) or test(/custom_prefix_myco_dot$/) or test(/invalid_prefix_fails_to_compile$/)"

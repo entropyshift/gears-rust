@@ -114,6 +114,9 @@ jobs:
               # Selects which tests each matrix leg runs (NEXTEST_PROFILE, below):
               # a profile edit changes the executed set on every OS.
               - '.config/nextest.toml'
+              # Guards that the Test Suite legs and the Trybuild job split the
+              # tests cleanly (run by `make test-trybuild`).
+              - 'tools/scripts/check_trybuild_profiles.py'
               # Read by `cargo gears lint --dylint`: DE0708 hasher allow-list and
               # DE1101 exclusions, both designed to be edited on their own.
               - 'dylint.toml'
@@ -259,10 +262,11 @@ jobs:
       # link.exe. NOTE: changing RUSTFLAGS changes sccache hashes, so the
       # first Windows run after this change recompiles from cold.
       RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C debuginfo=0 -C linker=lld-link' || '-C debuginfo=0' }}
-      # Windows/macOS skip the trybuild/compile-fail suites — serial rustc
+      # Every leg skips the trybuild/compile-fail suites — serial rustc
       # sessions over identical fixtures with the same pinned toolchain on
-      # every OS; the Ubuntu leg keeps full coverage. See .config/nextest.toml.
-      NEXTEST_PROFILE: ${{ matrix.os == 'ubuntu-latest' && 'default' || 'no-trybuild' }}
+      # every OS. The `trybuild` job below runs them once, on Linux, in
+      # parallel with these legs. See .config/nextest.toml.
+      NEXTEST_PROFILE: no-trybuild
     steps:
       - name: Force LF in working tree (w/a for Windows)
         if: runner.os == 'Windows'
@@ -372,6 +376,92 @@ jobs:
       # assertions hold trivially and prove nothing they were written for.
       - name: cargo test (bss-fixtures narrow production surface)
         run: make test-fixtures-narrow
+
+  # The trybuild / compile-fail suites every Test Suite leg skips (nextest
+  # `no-trybuild` / `trybuild-only` profiles). They used to run at the end of
+  # the Ubuntu leg: ~1,090 s of serial rustc work that the leg waited on.
+  # Here they run alongside it and build only the binaries holding them.
+  # Same toolchain, RUSTFLAGS and workspace selection as the Ubuntu leg, so
+  # the build reuses that leg's sccache objects.
+  trybuild:
+    name: Trybuild (compile-fail suites)
+    needs: changes
+    if: >-
+      !cancelled()
+      && (needs.changes.result != 'success'
+      || needs.changes.outputs.rust == 'true'
+      || needs.changes.outputs.ci == 'true'
+      || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RUSTFLAGS: "-C debuginfo=0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install protoc
+        uses: taiki-e/install-action@9114bf4d891761788c546334fd37538eae1bf8b3 # v2.87.16
+        with:
+          tool: protoc@3.34.1
+
+      # Same feature set as the Ubuntu leg, which needs Go for aws-lc-fips-sys.
+      - name: Install Go (required for aws-lc-fips-sys FIPS build)
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.21.x'  # pinned - see docs/security/fips/TOOLCHAIN.md
+          cache: false
+
+      - name: Install Rust toolchain from rust-toolchain.toml
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup show
+
+      # cargo-deny is included so `make install-tools` finds a new-enough
+      # binary and skips its source build.
+      - name: Install nextest and cargo-deny
+        uses: taiki-e/install-action@9114bf4d891761788c546334fd37538eae1bf8b3 # v2.87.16
+        with:
+          tool: nextest,cargo-deny@0.20.2
+
+      # Shared registry snapshot; restore-only (single writer: cache-warm.yml).
+      - name: Restore Cargo registry
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
+
+      # Pinned cargo-gears binary for `make install-tools`; rationale at the
+      # test job's copy of this step.
+      - name: Install cargo-gears
+        uses: ./.github/actions/cargo-gears-bin
+        with:
+          version: ${{ env.GEARS_CLI_VERSION }}
+          save-gha: ${{ github.event_name != 'pull_request' }}
+          r2-endpoint: ${{ vars.R2_ENDPOINT }}
+          r2-bucket: ${{ vars.R2_BUCKET }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+
+      - name: Probe sccache & set RUSTC_WRAPPER
+        uses: ./.github/actions/sccache-probe
+        with:
+          r2-endpoint: ${{ vars.R2_ENDPOINT }}
+          r2-bucket: ${{ vars.R2_BUCKET }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      # Checks first that the two nextest profiles are still exact complements.
+      - name: cargo test (trybuild / compile-fail suites)
+        run: make test-trybuild
 
   integration:
     name: Integration tests

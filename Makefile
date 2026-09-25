@@ -693,7 +693,7 @@ OPENAPI_BUILD_FEATURE_ARGS := $(if $(GEAR),$(GEAR_OPENAPI_FEATURE_ARGS),$(OPENAP
 
 # -------- Tests --------
 
-.PHONY: test test-no-macros test-macros test-sqlite test-pg test-pgq test-mysql test-db test-users-info-pg test-usage-collector-pg test-types-registry-db test-cluster-pg test-cluster-redis test-cluster-k8s coverage-cluster-k8s test-rg-pg test-pricing-pg test-coord-pg test-fixtures-narrow test-fips
+.PHONY: test test-no-macros test-macros test-trybuild test-sqlite test-pg test-pgq test-mysql test-db test-users-info-pg test-usage-collector-pg test-types-registry-db test-cluster-pg test-cluster-redis test-cluster-k8s coverage-cluster-k8s test-rg-pg test-pricing-pg test-coord-pg test-fixtures-narrow test-fips
 
 # Run all tests, or a single gear when GEAR=<gear> is set.
 # When GEAR= is set, cargo gears ls packages finds matching crates + their
@@ -716,6 +716,22 @@ test-macros: install-tools
 	$(call print_target_banner)
 	cargo nextest run -p cf-gears-toolkit-db-macros
 	cargo nextest run -p cf-gears-toolkit-macros-tests
+
+# Test binaries that hold the trybuild / compile-fail suites selected by the
+# nextest `trybuild-only` profile. Only these get built for `test-trybuild`.
+TRYBUILD_TEST_TARGETS := ui compile_tests typed_builder_compilefail domain_model_tests producer prefix_customization
+
+## Run the trybuild / compile-fail suites that `test-no-macros` leaves out
+## under the nextest `no-trybuild` profile (CI's Trybuild job). The same
+## `--workspace` / `--exclude` selection as `test-no-macros` gives the same
+## feature unification, so the fixtures compile against the same feature set
+## and reuse the same sccache objects; the `--test` list limits the build to
+## the binaries that hold these suites.
+test-trybuild: install-tools
+	$(call print_target_banner)
+	python3 tools/scripts/check_trybuild_profiles.py $(TRYBUILD_TEST_TARGETS)
+	cargo nextest run --workspace --exclude cf-gears-toolkit-macros-tests --exclude cf-gears-toolkit-db-macros \
+		$(addprefix --test ,$(TRYBUILD_TEST_TARGETS)) --profile trybuild-only
 
 ## Run SQLite integration tests
 test-sqlite: install-tools
