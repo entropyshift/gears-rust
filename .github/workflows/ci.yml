@@ -239,7 +239,7 @@ jobs:
         run: make clippy
 
   test:
-    name: Test Suite (${{ matrix.os }}${{ matrix.diag_jobs && format(', jobs={0}', matrix.diag_jobs) || '' }})
+    name: Test Suite (${{ matrix.os }}${{ matrix.shard && format(', {0}', matrix.shard) || '' }})
     needs: changes
     if: >-
       !cancelled()
@@ -255,11 +255,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
-        # DIAG (fork-only, drop): a second macOS leg with 2 build jobs.
+        os: [ ubuntu-latest, windows-latest ]
+        # macOS runs as two shards on separate runners. Its runner (3-core
+        # virtual M1) took ~25 min to build the test binaries against ~11 on
+        # Ubuntu, and a CARGO_BUILD_JOBS=2 trial built as fast as the default
+        # 3 jobs, so parallelism within one runner is not what limits it.
+        # Test binaries are never cacheable (sccache skips executables), so
+        # each shard compiles and runs only its half of them; libraries still
+        # come from sccache.
+        #
+        # The split is by target, not by package, and both shards keep
+        # `--workspace`: a package subset would unify features differently
+        # (stable Cargo cannot pin workspace-wide unification), changing both
+        # the sccache keys and what the tests exercise. The two `--test`
+        # globs are exact complements, so every integration test binary runs
+        # in exactly one shard. The a-l boundary balanced the build to within
+        # ~1 % in run 36195700995's cargo timings (unit tests are ~23 of the
+        # ~63 test-binary CPU-minutes; `p*`, the postgres suites, is ~13).
+        # `--examples` keeps the compile check that cargo's default target
+        # set gave the examples.
         include:
           - os: macos-latest
-            diag_jobs: '2'
+            shard: units + tests a-l
+            test_target_filter: "--lib --bins --examples --test '[a-l]*'"
+          - os: macos-latest
+            shard: tests m-z
+            test_target_filter: "--test '[!a-l]*'"
     env:
       # lld-link on Windows: 329 test binaries get linked and links are the
       # one phase sccache can never cache; lld is typically 2-5x faster than
@@ -384,27 +405,11 @@ jobs:
         shell: bash
         run: df -h .
 
-      # DIAG (fork-only, drop): memory pressure during the macOS build, and
-      # an optional CARGO_BUILD_JOBS override (not part of sccache keys).
       - name: cargo test (no macros)
-        shell: bash
-        run: |
-          if [[ -n "${{ matrix.diag_jobs }}" ]]; then export CARGO_BUILD_JOBS="${{ matrix.diag_jobs }}"; fi
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            ( while true; do
-                echo "$(date -u +%H:%M:%S) $(sysctl -n vm.swapusage) | $(memory_pressure | tail -1)"
-                sleep 30
-              done ) > "$RUNNER_TEMP/mem.log" 2>&1 &
-            sampler=$!
-          fi
-          rc=0; make test-no-macros || rc=$?
-          if [[ -n "${sampler:-}" ]]; then
-            kill "$sampler" || true
-            echo "::group::memory samples (CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-default})"
-            cat "$RUNNER_TEMP/mem.log"
-            echo "::endgroup::"
-          fi
-          exit $rc
+        env:
+          # Empty on the unsharded legs: cargo's default targets.
+          TEST_TARGET_FILTER: ${{ matrix.test_target_filter }}
+        run: make test-no-macros
 
       # `bss-fixtures` is the only crate in the tree whose *production* surface
       # is the narrow one: pricing's `FixtureGate` inherits it with
@@ -412,6 +417,8 @@ jobs:
       # above compiles the wide build, where `tests/production_surface.rs`'s
       # assertions hold trivially and prove nothing they were written for.
       - name: cargo test (bss-fixtures narrow production surface)
+        # One macOS shard is enough; the other legs have no shard.
+        if: matrix.shard != 'tests m-z'
         run: make test-fixtures-narrow
 
   # The trybuild / compile-fail suites every Test Suite leg skips (nextest
