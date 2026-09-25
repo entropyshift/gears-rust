@@ -354,6 +354,11 @@ jobs:
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
         uses: ./.github/actions/sccache-probe
+        # DIAG (fork-only, drop before upstream): server-side debug log on
+        # Windows to name the ~180 crates that miss on every warm run.
+        env:
+          SCCACHE_LOG: ${{ runner.os == 'Windows' && 'debug' || 'error' }}
+          SCCACHE_ERROR_LOG: ${{ runner.temp }}/sccache-server.log
         with:
           r2-endpoint: ${{ vars.R2_ENDPOINT }}
           r2-bucket: ${{ vars.R2_BUCKET }}
@@ -376,6 +381,15 @@ jobs:
       # assertions hold trivially and prove nothing they were written for.
       - name: cargo test (bss-fixtures narrow production surface)
         run: make test-fixtures-narrow
+
+      # DIAG (fork-only, drop before upstream).
+      - name: "DIAG: upload sccache server log"
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sccache-server-log-windows
+          path: ${{ runner.temp }}/sccache-server.log
+          retention-days: 7
 
   # The trybuild / compile-fail suites every Test Suite leg skips (nextest
   # `no-trybuild` / `trybuild-only` profiles). They used to run at the end of
