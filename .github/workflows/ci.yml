@@ -404,14 +404,11 @@ jobs:
           if len(runs) > 15: print(f"  ... {len(runs)} differing ranges in total")
           PY
           ver=$(awk '/^name = "thiserror"$/{getline; gsub(/version = |"/,""); print}' Cargo.lock | sort -V | tail -1)
-          for variant in brepro fix-a-build-override-strip fix-b-global-strip; do
+          for variant in debug-none-brepro debug-none-only; do
             unset CARGO_PROFILE_DEV_BUILD_OVERRIDE_STRIP
             case $variant in
-              brepro) flags="-C debuginfo=0 -C linker=lld-link -C link-arg=-Brepro" ;;
-              fix-a-build-override-strip)
-                flags="-C debuginfo=0 -C linker=lld-link -C link-arg=-Brepro"
-                export CARGO_PROFILE_DEV_BUILD_OVERRIDE_STRIP=debuginfo ;;
-              fix-b-global-strip) flags="-C debuginfo=0 -C strip=debuginfo -C linker=lld-link -C link-arg=-Brepro" ;;
+              debug-none-brepro) flags="-C debuginfo=0 -C linker=lld-link -C link-arg=-Brepro -C link-arg=-DEBUG:NONE" ;;
+              debug-none-only)   flags="-C debuginfo=0 -C linker=lld-link -C link-arg=-DEBUG:NONE" ;;
             esac
             export CARGO_TARGET_DIR="$RUNNER_TEMP/pm-$variant" RUSTFLAGS="$flags"
             echo "=== $variant: RUSTFLAGS=$RUSTFLAGS build-override-strip=${CARGO_PROFILE_DEV_BUILD_OVERRIDE_STRIP:-unset} thiserror@$ver"
