@@ -708,15 +708,21 @@ else
 	cargo nextest run $$GEAR_SCOPE $(GEAR_FEATURE_ARGS) $(GEAR_TEST_ARGS) $(GEAR_NO_TESTS_FLAG)
 endif
 
-# Optional cargo target selection for `test-no-macros` (e.g. `--lib --bins`),
-# used by CI to split one OS leg across runners. Empty = cargo's default
-# targets. It narrows targets only: the package selection stays `--workspace`,
-# so feature unification (and with it the sccache keys) does not change.
-TEST_TARGET_FILTER ?=
+# Optional `INDEX/COUNT` (e.g. `1/2`): run only that shard of the packages
+# below, as picked by tools/scripts/test_shard.py. CI uses it to split one OS
+# leg across runners; the shards together cover the whole set exactly once.
+TEST_SHARD ?=
 
 test-no-macros: install-tools
 	$(call print_target_banner)
-	cargo nextest run --workspace --exclude cf-gears-toolkit-macros-tests --exclude cf-gears-toolkit-db-macros $(TEST_TARGET_FILTER)
+	@if [ -n "$(TEST_SHARD)" ]; then \
+		scope="$$(python3 tools/scripts/test_shard.py $(TEST_SHARD))" || exit 1; \
+		echo "shard $(TEST_SHARD): $$scope"; \
+	else \
+		scope="--workspace --exclude cf-gears-toolkit-macros-tests --exclude cf-gears-toolkit-db-macros"; \
+	fi; \
+	echo "cargo nextest run $$scope"; \
+	cargo nextest run $$scope
 
 test-macros: install-tools
 	$(call print_target_banner)

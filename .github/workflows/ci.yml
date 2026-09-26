@@ -117,6 +117,8 @@ jobs:
               # Guards that the Test Suite legs and the Trybuild job split the
               # tests cleanly (run by `make test-trybuild`).
               - 'tools/scripts/check_trybuild_profiles.py'
+              # Picks the packages of each sharded Test Suite leg.
+              - 'tools/scripts/test_shard.py'
               # Read by `cargo gears lint --dylint`: DE0708 hasher allow-list and
               # DE1101 exclusions, both designed to be edited on their own.
               - 'dylint.toml'
@@ -239,7 +241,7 @@ jobs:
         run: make clippy
 
   test:
-    name: Test Suite (${{ matrix.os }}${{ matrix.shard && format(', {0}', matrix.shard) || '' }})
+    name: Test Suite (${{ matrix.os }}${{ matrix.shard && format(', shard {0}', matrix.shard) || '' }})
     needs: changes
     if: >-
       !cancelled()
@@ -257,30 +259,28 @@ jobs:
       matrix:
         os: [ ubuntu-latest, windows-latest ]
         # macOS runs as two shards on separate runners. Its runner (3-core
-        # virtual M1) took ~25 min to build the test binaries against ~11 on
-        # Ubuntu, and a CARGO_BUILD_JOBS=2 trial built as fast as the default
-        # 3 jobs, so parallelism within one runner is not what limits it.
-        # Test binaries are never cacheable (sccache skips executables), so
-        # each shard compiles and runs only its half of them; libraries still
-        # come from sccache.
+        # virtual M1, 7 GB, no swapping) took ~25 min to build the test
+        # binaries against ~11 on Ubuntu, and a CARGO_BUILD_JOBS=2 trial built
+        # as fast as the default 3 jobs, so a second runner, not more jobs,
+        # is what adds throughput. Test binaries are never cacheable (sccache
+        # skips executables), so each shard compiles and runs only its half;
+        # libraries still come from sccache.
         #
-        # The split is by target, not by package, and both shards keep
-        # `--workspace`: a package subset would unify features differently
-        # (stable Cargo cannot pin workspace-wide unification), changing both
-        # the sccache keys and what the tests exercise. The two `--test`
-        # globs are exact complements, so every integration test binary runs
-        # in exactly one shard. The a-l boundary balanced the build to within
-        # ~1 % in run 36195700995's cargo timings (unit tests are ~23 of the
-        # ~63 test-binary CPU-minutes; `p*`, the postgres suites, is ~13).
-        # `--examples` keeps the compile check that cargo's default target
-        # set gave the examples.
+        # Split by package (tools/scripts/test_shard.py, balanced by source
+        # size). A split by target would keep `--workspace` feature
+        # unification, but cargo refuses explicitly selected test targets
+        # with unmet required-features (the cluster plugins' `integration`
+        # suites), and three such names are shared with runnable targets
+        # elsewhere, so neither `--test` globs nor name lists work. Measured
+        # with `cargo tree`, the package split changes the feature set of 21
+        # and 17 packages (mostly external); the only tested member affected
+        # is cf-gears-toolkit-utils, built without `schemars` in shard 1,
+        # which is exactly what `cargo test -p` gives locally.
         include:
           - os: macos-latest
-            shard: units + tests a-l
-            test_target_filter: "--lib --bins --examples --test '[a-l]*'"
+            shard: 1/2
           - os: macos-latest
-            shard: tests m-z
-            test_target_filter: "--test '[!a-l]*'"
+            shard: 2/2
     env:
       # lld-link on Windows: 329 test binaries get linked and links are the
       # one phase sccache can never cache; lld is typically 2-5x faster than
@@ -407,8 +407,8 @@ jobs:
 
       - name: cargo test (no macros)
         env:
-          # Empty on the unsharded legs: cargo's default targets.
-          TEST_TARGET_FILTER: ${{ matrix.test_target_filter }}
+          # Empty on the unsharded legs: the whole package set.
+          TEST_SHARD: ${{ matrix.shard }}
         run: make test-no-macros
 
       # `bss-fixtures` is the only crate in the tree whose *production* surface
@@ -418,7 +418,7 @@ jobs:
       # assertions hold trivially and prove nothing they were written for.
       - name: cargo test (bss-fixtures narrow production surface)
         # One macOS shard is enough; the other legs have no shard.
-        if: matrix.shard != 'tests m-z'
+        if: matrix.shard != '2/2'
         run: make test-fixtures-narrow
 
   # The trybuild / compile-fail suites every Test Suite leg skips (nextest
