@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
 """
-Print the `-p` arguments for one shard of the `make test-no-macros` package set.
+Print the cargo arguments for one shard of the `make test-no-macros` package set.
 
 CI splits a slow OS leg across runners (`make test-no-macros TEST_SHARD=1/2`).
 Every workspace member except the EXCLUDED ones lands in exactly one shard, so
 together the shards run the same tests as one `--workspace` run.
+
+A package subset unifies features differently from `--workspace`: a member can
+lose a feature that only another member turns on, and with it every test
+behind `#[cfg(feature = ...)]`. Run 36229001448 lost six that way
+(cf-gears-oagw-sdk without `axum`, cf-gears-toolkit-utils without `schemars`).
+So each shard also passes `--features` for its own members, set to the
+features `cargo metadata` resolves for them across the whole workspace, which
+keeps their `cfg(feature)` surface identical to a `--workspace` run.
 
 Packages are balanced by the size of their Rust sources (tests included),
 plus EXTRA_WEIGHT_SHARE for packages whose test run is unusually expensive,
@@ -18,7 +26,7 @@ Usage:
 
 Exit codes:
   0 - Arguments printed on stdout
-  1 - Bad arguments, or `cargo metadata` failed
+  1 - Bad arguments, or `cargo metadata` / `rustc -vV` failed
 """
 
 import json
@@ -53,15 +61,35 @@ def source_bytes(package_dir: Path) -> int:
     return total
 
 
-def shard_packages(index: int, count: int) -> list[str]:
-    metadata = json.loads(
-        subprocess.run(
-            ["cargo", "metadata", "--no-deps", "--format-version", "1"],
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
+def cargo_json(*args: str) -> dict:
+    return json.loads(
+        subprocess.run(["cargo", *args], check=True, capture_output=True, text=True).stdout
     )
+
+
+def host_triple() -> str:
+    out = subprocess.run(["rustc", "-vV"], check=True, capture_output=True, text=True).stdout
+    return next(line.split(": ", 1)[1] for line in out.splitlines() if line.startswith("host: "))
+
+
+def workspace_features(names: list[str]) -> list[str]:
+    """`pkg/feature` for every non-default feature the whole workspace enables on `names`."""
+    metadata = cargo_json(
+        "metadata", "--format-version", "1", "--filter-platform", host_triple()
+    )
+    by_id = {p["id"]: p["name"] for p in metadata["packages"]}
+    wanted = set(names) & {by_id[i] for i in metadata["workspace_members"]}
+    return sorted(
+        f"{by_id[node['id']]}/{feature}"
+        for node in metadata["resolve"]["nodes"]
+        if by_id[node["id"]] in wanted and node["id"] in metadata["workspace_members"]
+        for feature in node["features"]
+        if feature != "default"
+    )
+
+
+def shard_packages(index: int, count: int) -> list[str]:
+    metadata = cargo_json("metadata", "--no-deps", "--format-version", "1")
     members = set(metadata["workspace_members"])
     weights = {
         p["name"]: source_bytes(Path(p["manifest_path"]).parent)
@@ -90,10 +118,14 @@ def main(argv: list[str]) -> int:
         return 1
     try:
         packages = shard_packages(index, count)
+        features = workspace_features(packages)
     except subprocess.CalledProcessError as e:
-        print(f"cargo metadata failed:\n{e.stderr}", file=sys.stderr)
+        print(f"{' '.join(e.cmd)} failed:\n{e.stderr}", file=sys.stderr)
         return 1
-    print(" ".join(f"-p {p}" for p in packages))
+    args = [f"-p {p}" for p in packages]
+    if features:
+        args.append("--features " + ",".join(features))
+    print(" ".join(args))
     return 0
 
 
