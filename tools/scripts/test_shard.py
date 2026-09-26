@@ -7,6 +7,7 @@ Every workspace member except the EXCLUDED ones lands in exactly one shard, so
 together the shards run the same tests as one `--workspace` run.
 
 Packages are balanced by the size of their Rust sources (tests included),
+plus EXTRA_WEIGHT_SHARE for packages whose test run is unusually expensive,
 largest first, each into the currently lightest shard. Source size tracks the
 cost that matters, compiling and linking test binaries, closely: against the
 macOS cargo timings of CI run 36195700995 it correlates at 0.96, and the
@@ -28,6 +29,15 @@ from pathlib import Path
 
 # Keep in sync with the `--exclude` list of `test-no-macros` in the Makefile.
 EXCLUDED = {"cf-gears-toolkit-macros-tests", "cf-gears-toolkit-db-macros"}
+
+# Test *execution* cost that source size cannot see, as a share of the whole
+# set's source weight. cf-gears-bss-pricing runs ~3,500 tests averaging ~0.6 s
+# (2,131 test-seconds on Windows in CI run 36225208693, against 54 s for the
+# next package), so by source size alone its shard spent 616 s running tests
+# against 92 s for the other. 0.25 is the value that evened out a simulation of
+# that run's build and test times (~19 / ~19 min instead of ~23 / ~15). Revisit
+# when a shard's test phase drifts well away from the other's.
+EXTRA_WEIGHT_SHARE = {"cf-gears-bss-pricing": 0.25}
 
 
 def source_bytes(package_dir: Path) -> int:
@@ -58,6 +68,10 @@ def shard_packages(index: int, count: int) -> list[str]:
         for p in metadata["packages"]
         if p["id"] in members and p["name"] not in EXCLUDED
     }
+    total = sum(weights.values())
+    for name, share in EXTRA_WEIGHT_SHARE.items():
+        if name in weights:
+            weights[name] += int(share * total)
     shards: list[list] = [[0, []] for _ in range(count)]
     for name in sorted(weights, key=lambda n: (-weights[n], n)):
         lightest = min(shards, key=lambda s: s[0])
