@@ -257,8 +257,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, windows-latest ]
-        # macOS runs as two shards on separate runners. Its runner (3-core
+        os: [ ubuntu-latest ]
+        # macOS and Windows run as two shards each, on separate runners.
+        #
+        # macOS: its runner (3-core
         # virtual M1, 7 GB, no swapping) took ~25 min to build the test
         # binaries against ~11 on Ubuntu, and a CARGO_BUILD_JOBS=2 trial built
         # as fast as the default 3 jobs, so a second runner, not more jobs,
@@ -276,10 +278,18 @@ jobs:
         # and 17 packages (mostly external); the only tested member affected
         # is cf-gears-toolkit-utils, built without `schemars` in shard 1,
         # which is exactly what `cargo test -p` gives locally.
+        #
+        # Windows: with every library cached it still took 27-46 min (build
+        # 16-24 min, tests 484-820 s, both swinging run to run on the same
+        # work), which made it the longest job once macOS was split.
         include:
           - os: macos-latest
             shard: 1/2
           - os: macos-latest
+            shard: 2/2
+          - os: windows-latest
+            shard: 1/2
+          - os: windows-latest
             shard: 2/2
     env:
       # lld-link on Windows: 329 test binaries get linked and links are the
@@ -417,7 +427,7 @@ jobs:
       # above compiles the wide build, where `tests/production_surface.rs`'s
       # assertions hold trivially and prove nothing they were written for.
       - name: cargo test (bss-fixtures narrow production surface)
-        # One macOS shard is enough; the other legs have no shard.
+        # Once per OS: the first shard only; Ubuntu has no shards.
         if: matrix.shard != '2/2'
         run: make test-fixtures-narrow
 
