@@ -65,14 +65,21 @@ def source_bytes(package_dir: Path) -> int:
     return total
 
 
+def run(*cmd: str) -> str:
+    # Explicit UTF-8: cargo emits UTF-8, and on Windows `text=True` alone
+    # decodes with the ANSI code page, which fails on crate descriptions in
+    # the full metadata (CI run 36232565886).
+    return subprocess.run(
+        cmd, check=True, capture_output=True, text=True, encoding="utf-8"
+    ).stdout
+
+
 def cargo_json(*args: str) -> dict:
-    return json.loads(
-        subprocess.run(["cargo", *args], check=True, capture_output=True, text=True).stdout
-    )
+    return json.loads(run("cargo", *args))
 
 
 def host_triple() -> str:
-    out = subprocess.run(["rustc", "-vV"], check=True, capture_output=True, text=True).stdout
+    out = run("rustc", "-vV")
     return next(line.split(": ", 1)[1] for line in out.splitlines() if line.startswith("host: "))
 
 
