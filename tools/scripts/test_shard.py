@@ -14,12 +14,24 @@ So each shard also passes `--features` for its own members, set to the
 features `cargo metadata` resolves for them across the whole workspace, which
 keeps their `cfg(feature)` surface identical to a `--workspace` run.
 
-Packages are balanced by the size of their Rust sources (tests included),
-plus EXTRA_WEIGHT_SHARE for packages whose test run is unusually expensive,
-largest first, each into the currently lightest shard. Source size tracks the
-cost that matters, compiling and linking test binaries, closely: against the
-macOS cargo timings of CI run 36195700995 it correlates at 0.96, and the
-resulting two shards differ by ~6%. New crates are placed automatically.
+Packages are weighted by the size of their Rust sources (tests included),
+plus EXTRA_WEIGHT_SHARE for packages whose test run is unusually expensive.
+Source size tracks the cost that matters, compiling and linking test binaries,
+closely: against the macOS cargo timings of CI run 36195700995 it correlates
+at 0.96. New crates are placed automatically.
+
+The split must also be stable. A package that changes shard changes its
+neighbours, and so the feature sets its dependencies build with, and every
+such crate misses the sccache cache on that shard. The first version filled
+the lightest shard largest-first; after merging 24 upstream commits, 10
+packages swapped between the macOS shards (CI run 36236536073) and one shard's
+build went from ~16 to 27 min. In a simulation with +-3% size drift that
+scheme moved a median of 50 packages. Now only the few HEAVY packages (at
+least HEAVY_SHARE of the total, placed first, largest into the lightest
+shard) are balanced that way, since their order rarely changes; the rest are
+split into name-ordered runs, each shard taking the next names until it
+reaches its share. Drift then moves a package or two at a boundary: median 1,
+at most 2 in the same simulation, with shards balanced to within 0.2%.
 
 Usage:
   test_shard.py INDEX/COUNT [--all-members]      e.g. 1/2
@@ -50,6 +62,10 @@ EXCLUDED = {"cf-gears-toolkit-macros-tests", "cf-gears-toolkit-db-macros"}
 # that run's build and test times (~19 / ~19 min instead of ~23 / ~15). Revisit
 # when a shard's test phase drifts well away from the other's.
 EXTRA_WEIGHT_SHARE = {"cf-gears-bss-pricing": 0.25}
+
+# Packages at least this share of the total weight are placed individually
+# before the name-ordered split; see the module docstring.
+HEAVY_SHARE = 0.05
 
 
 def source_bytes(package_dir: Path) -> int:
@@ -112,10 +128,23 @@ def shard_packages(index: int, count: int, excluded: set[str]) -> list[str]:
         if name in weights:
             weights[name] += int(share * total)
     shards: list[list] = [[0, []] for _ in range(count)]
-    for name in sorted(weights, key=lambda n: (-weights[n], n)):
+    heavy = sorted(
+        (n for n in weights if weights[n] >= HEAVY_SHARE * total),
+        key=lambda n: (-weights[n], n),
+    )
+    for name in heavy:
         lightest = min(shards, key=lambda s: s[0])
         lightest[0] += weights[name]
         lightest[1].append(name)
+    # The rest in name order: each shard takes the next names while that
+    # brings it closer to its share, then the next shard continues.
+    target = sum(weights.values()) / count
+    k = 0
+    for name in sorted(n for n in weights if n not in heavy):
+        if k < count - 1 and shards[k][0] + weights[name] / 2 > target:
+            k += 1
+        shards[k][0] += weights[name]
+        shards[k][1].append(name)
     return sorted(shards[index - 1][1])
 
 
