@@ -257,8 +257,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest ]
-        # macOS and Windows run as two shards each, on separate runners.
+        # Every OS runs as two package shards, on separate runners.
         #
         # macOS: its runner (3-core
         # virtual M1, 7 GB, no swapping) took ~25 min to build the test
@@ -282,7 +281,14 @@ jobs:
         # Windows: with every library cached it still took 27-46 min (build
         # 16-24 min, tests 484-820 s, both swinging run to run on the same
         # work), which made it the longest job once macOS was split.
+        #
+        # Ubuntu: 26 min (build ~14, tests ~11), the longest job once
+        # Windows and coverage were split.
         include:
+          - os: ubuntu-latest
+            shard: 1/2
+          - os: ubuntu-latest
+            shard: 2/2
           - os: macos-latest
             shard: 1/2
           - os: macos-latest
@@ -413,7 +419,7 @@ jobs:
 
       - name: cargo test (no macros)
         env:
-          # Empty on the unsharded legs: the whole package set.
+          # Every leg is a shard; an empty value would run the whole set.
           TEST_SHARD: ${{ matrix.shard }}
         run: make test-no-macros
 
@@ -423,7 +429,7 @@ jobs:
       # above compiles the wide build, where `tests/production_surface.rs`'s
       # assertions hold trivially and prove nothing they were written for.
       - name: cargo test (bss-fixtures narrow production surface)
-        # Once per OS: the first shard only; Ubuntu has no shards.
+        # Once per OS: the first shard only.
         if: matrix.shard != '2/2'
         run: make test-fixtures-narrow
 
@@ -529,8 +535,12 @@ jobs:
       - name: cargo test (trybuild / compile-fail suites)
         run: make test-trybuild
 
+  # Two groups on separate runners. Run serially in one job the suites took
+  # ~22.6 min plus setup (run 36234405629); split by measured suite time into
+  # ~11 min each. Every suite keeps its own step and make target; `group`
+  # only decides which runner runs it.
   integration:
-    name: Integration tests
+    name: Integration tests (${{ matrix.group }})
     needs: changes
     if: >-
       !cancelled()
@@ -540,6 +550,10 @@ jobs:
       || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [ bss + macros, platform + db ]
     env:
       RUSTFLAGS: "-C debuginfo=0"
     steps:
@@ -626,24 +640,30 @@ jobs:
         run: df -h .
 
       - name: UI tests for toolkit macros libraries
+        if: matrix.group == 'bss + macros'
         run: make test-macros
 
       - name: Test users_info with Postgres (integration)
+        if: matrix.group == 'bss + macros'
         run: make test-users-info-pg
 
       - name: Test timescaledb usage-collector plugin (pg integration)
+        if: matrix.group == 'platform + db'
         run: make test-usage-collector-pg
 
       - name: Test postgres-cluster-plugin (pg integration)
+        if: matrix.group == 'platform + db'
         run: make test-cluster-pg
 
       - name: Test k8s-cluster-plugin (k3s L2+L3 integration)
+        if: matrix.group == 'platform + db'
         # k3s runs in a **privileged** container (testcontainers-modules sets it);
         # GitHub-hosted ubuntu runners permit that. The target uses `cargo test`, not
         # nextest, so one k3s container is shared per test binary -- see the Makefile.
         run: make test-cluster-k8s
 
       - name: Test resource-group (pg smoke, integration)
+        if: matrix.group == 'platform + db'
         # Fail if Docker is unreachable instead of letting the suite skip itself
         # into a green step that asserted nothing.
         env:
@@ -655,6 +675,7 @@ jobs:
       # owns lives in them. This job already has Docker. The target passes
       # `--no-fail-fast`; see the Makefile for what the default cost on 2026-08-18.
       - name: Test bss-pricing with Postgres (integration)
+        if: matrix.group == 'bss + macros'
         run: make test-pricing-pg
 
       # coord's `m0001_…` writes two independent SQL literals and only the
@@ -662,18 +683,23 @@ jobs:
       # that stops the `bss-pricing`-beside-`bss-ledger` boot crash, and the
       # `in_schema("bss")` form both gears actually pass, ran in no job.
       - name: Test coord with Postgres (integration)
+        if: matrix.group == 'bss + macros'
         run: make test-coord-pg
 
       - name: Test redis-cluster-plugin (redis integration)
+        if: matrix.group == 'platform + db'
         run: make test-cluster-redis
 
       - name: Test toolkit-db (sqlite integration)
+        if: matrix.group == 'platform + db'
         run: make test-sqlite
 
       - name: Test toolkit-db (pg integration)
+        if: matrix.group == 'platform + db'
         run: make test-pg
 
       - name: Test toolkit-db (pgq unit + PG19 integration)
+        if: matrix.group == 'platform + db'
         # Compiles and runs everything behind the `pgq` feature — the secure
         # graph builder, its unit suites and the trybuild guards — and the
         # PostgreSQL 19 integration suite. Locally that suite skips itself while
@@ -685,9 +711,11 @@ jobs:
         run: make test-pgq
 
       - name: Test toolkit-db (mysql integration)
+        if: matrix.group == 'platform + db'
         run: make test-mysql
 
       - name: Test types-registry (db integration)
+        if: matrix.group == 'platform + db'
         run: make test-types-registry-db
 
   test-fips:
