@@ -5,15 +5,14 @@
 
 # `no-trybuild` — used by every Test Suite leg (Ubuntu, Windows, macOS).
 # `trybuild-only` — its exact complement, used by the separate Trybuild job
-# (`make test-trybuild`).
+# (`make test-trybuild`), which runs on the same three OSes.
 #
-# The compile-fail / trybuild-style suites are serial rustc sessions compiling
-# fixture code with the same pinned toolchain on every OS, so running them
-# once, on Linux, keeps the signal. They used to run inside the Ubuntu leg:
-# ~1,090 s of test time between them, the slowest alone 326 s, and the last
-# to finish set the end of that leg's 989 s test phase (run 36070999177;
-# Windows, without them, took 573 s). In their own job they run alongside
-# the legs instead.
+# Together the two cover every test on every OS, as a plain run would. The
+# split only moves the compile-fail / trybuild-style suites, long serial
+# rustc sessions, out of the test legs: on Ubuntu they were ~1,090 s of test
+# time, the slowest alone 326 s, and the last to finish set the end of that
+# leg's 989 s test phase (run 36070999177). In their own job they run
+# alongside the legs instead.
 #
 # Every matcher below is exact (`binary(=...)`) or end-anchored (`test(/...$/)`).
 # The substring forms this file first shipped with swept in unrelated tests:

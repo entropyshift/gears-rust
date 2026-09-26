@@ -311,10 +311,9 @@ jobs:
       # (debuginfo=0 already drops file:line). Spelled with `-` so MSYS path
       # conversion in bash steps cannot rewrite a leading `/`.
       RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C debuginfo=0 -C linker=lld-link -C link-arg=-Brepro -C link-arg=-DEBUG:NONE' || '-C debuginfo=0' }}
-      # Every leg skips the trybuild/compile-fail suites — serial rustc
-      # sessions over identical fixtures with the same pinned toolchain on
-      # every OS. The `trybuild` job below runs them once, on Linux, in
-      # parallel with these legs. See .config/nextest.toml.
+      # Every leg skips the trybuild/compile-fail suites (long serial rustc
+      # sessions); the `trybuild` job below runs them on the same three OSes,
+      # in parallel with these legs. See .config/nextest.toml.
       NEXTEST_PROFILE: no-trybuild
     steps:
       - name: Force LF in working tree (w/a for Windows)
@@ -432,13 +431,15 @@ jobs:
         run: make test-fixtures-narrow
 
   # The trybuild / compile-fail suites every Test Suite leg skips (nextest
-  # `no-trybuild` / `trybuild-only` profiles). They used to run at the end of
-  # the Ubuntu leg: ~1,090 s of serial rustc work that the leg waited on.
-  # Here they run alongside it and build only the binaries holding them.
-  # Same toolchain, RUSTFLAGS and workspace selection as the Ubuntu leg, so
-  # the build reuses that leg's sccache objects.
+  # `no-trybuild` / `trybuild-only` profiles), on every OS the Test Suite
+  # covers, so each OS still runs exactly the tests it ran before the split.
+  # They used to run at the end of the test legs: ~1,090 s of serial rustc
+  # work on Ubuntu that the leg waited on. Here they run alongside the legs
+  # and build only the binaries holding them. Same toolchain, RUSTFLAGS and
+  # workspace selection as each OS's test leg, so the build reuses that leg's
+  # sccache objects.
   trybuild:
-    name: Trybuild (compile-fail suites)
+    name: Trybuild (${{ matrix.os }})
     needs: changes
     if: >-
       !cancelled()
@@ -446,11 +447,25 @@ jobs:
       || needs.changes.outputs.rust == 'true'
       || needs.changes.outputs.ci == 'true'
       || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
     env:
-      RUSTFLAGS: "-C debuginfo=0"
+      # Must match the test job's RUSTFLAGS per OS (see the notes there).
+      RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C debuginfo=0 -C linker=lld-link -C link-arg=-Brepro -C link-arg=-DEBUG:NONE' || '-C debuginfo=0' }}
     steps:
+      # trybuild compares compiler output with checked-in .stderr files byte
+      # for byte, so CRLF checkouts would fail every case.
+      - name: Force LF in working tree (w/a for Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
