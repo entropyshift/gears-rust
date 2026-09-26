@@ -158,9 +158,15 @@ make test-users-info-pg    # users-info Postgres integration
 
 ### 4.3 CI
 
-The `integration` job in `ci.yml` runs the SQLite, Postgres, PGQ (PostgreSQL 19, with
-`GEARS_TEST_PG_GRAPH_REQUIRED=1` so an unavailable image fails the step rather than skipping
-it) and MySQL integration tests plus macro UI tests on every PR (Ubuntu only).
+The `integration` job in `ci.yml` runs every Docker / database / service-backed suite on every
+PR (Ubuntu only): SQLite, Postgres, PGQ (PostgreSQL 19, with `GEARS_TEST_PG_GRAPH_REQUIRED=1` so
+an unavailable image fails the job rather than skipping it), MySQL, Redis, k3s, the gear-level
+Postgres suites and the macro UI tests.
+
+The suites are listed in the Makefile as `INTEGRATION_SUITES_1` and `INTEGRATION_SUITES_2`,
+two lists of roughly equal run time that CI runs on two runners (`make test-integration-1`,
+`make test-integration-2`; `make test-integration` runs both). **To add a suite to CI, write
+its make target and add its name to one of the two lists.**
 
 ### 4.4 Database container images
 
@@ -427,11 +433,14 @@ Gear runtime settings are YAML-driven under `gears:<gear_name>:` with a `config`
 ```
 PR opened / updated
   ├── ci.yml
-  │     ├── test          — fmt + clippy + unit tests (Ubuntu, macOS, Windows)
-  │     ├── integration   — DB integration tests (Ubuntu)
+  │     ├── test          — unit + integration-target tests (Ubuntu, macOS, Windows;
+  │     │                   two shards per OS, see 7.4)
+  │     ├── trybuild      — compile-fail / trybuild suites (Ubuntu, macOS, Windows)
+  │     ├── clippy        — lints (Ubuntu)
+  │     ├── integration   — DB / service integration suites (Ubuntu; two lists, see 4.3)
   │     ├── test-fips     — FIPS verification / platform-specific FIPS test lanes
   │     ├── security      — cargo-deny
-  │     ├── coverage      — cargo-llvm-cov → Codecov upload
+  │     ├── coverage      — cargo-llvm-cov (two shards) → one Codecov upload
   │     ├── lint          — custom architectural lints (cargo gears lint)
   │     └── cypilot       — artifact / specification validation
   │
@@ -454,6 +463,23 @@ Nightly (schedule)
   ├── pr-governance.yml    — governance / follow-up automation
   └── pr-reviewer-check.yml — reviewer assignment checks
 ```
+
+### 7.4 How CI splits tests
+
+To keep PR feedback fast, CI spreads the work over several runners. Every test still runs
+exactly once per OS, as in a plain `cargo nextest run --workspace`.
+
+- **A test in an existing crate, or a new crate:** nothing to do. The `test` job splits the
+  workspace by crate into two shards per OS (`tools/scripts/test_shard.py`, balanced by
+  source size); new crates are placed automatically, and every crate keeps the features it
+  gets in a full workspace build.
+- **A trybuild / compile-fail case:** nothing to do. The suites run in the `trybuild` job on
+  every OS (nextest profiles `no-trybuild` / `trybuild-only` in `.config/nextest.toml`); a
+  suite in a new test binary simply runs in the `test` shards instead.
+- **A new integration suite:** add its make target to `INTEGRATION_SUITES_1` or `_2` (4.3).
+- **Coverage** uses the same crate shards and merges them into one Codecov report.
+
+To reproduce one shard locally: `make test-no-macros TEST_SHARD=1/2`.
 
 ---
 
@@ -498,7 +524,8 @@ Before opening a PR, verify:
 
 - [ ] `make check` passes (fmt + clippy + unit tests + security)
 - [ ] New code has unit tests
-- [ ] Integration tests added/updated if DB logic changed
+- [ ] Integration tests added/updated if DB logic changed (a new suite goes into one of the
+      `INTEGRATION_SUITES_*` lists in the Makefile, see 4.3)
 - [ ] E2E tests added/updated if REST endpoints changed
 - [ ] `make coverage-unit` shows no regression below the 80 % threshold
 - [ ] Fuzz targets updated if parser/validator logic changed

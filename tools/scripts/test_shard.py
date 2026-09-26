@@ -3,8 +3,8 @@
 Print the cargo arguments for one shard of the `make test-no-macros` package set.
 
 CI splits a slow OS leg across runners (`make test-no-macros TEST_SHARD=1/2`).
-Every workspace member except the EXCLUDED ones lands in exactly one shard, so
-together the shards run the same tests as one `--workspace` run.
+Every workspace member not passed with --exclude lands in exactly one shard, so
+together the shards run the same tests as one `--workspace --exclude ...` run.
 
 A package subset unifies features differently from `--workspace`: a member can
 lose a feature that only another member turns on, and with it every test
@@ -34,11 +34,10 @@ reaches its share. Drift then moves a package or two at a boundary: median 1,
 at most 2 in the same simulation, with shards balanced to within 0.2%.
 
 Usage:
-  test_shard.py INDEX/COUNT [--all-members]      e.g. 1/2
+  test_shard.py INDEX/COUNT [--exclude PKG]...     e.g. 1/2 --exclude foo
 
---all-members shards every workspace member, EXCLUDED ones included. The
-coverage job uses it: it measures the whole workspace (`--workspace`), unlike
-`make test-no-macros`, which leaves the EXCLUDED macro crates to its own target.
+`make test-no-macros` passes its NO_MACROS_EXCLUDE list; the coverage job
+passes none, since it measures the whole workspace.
 
 Exit codes:
   0 - Arguments printed on stdout
@@ -50,9 +49,6 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-
-# Keep in sync with the `--exclude` list of `test-no-macros` in the Makefile.
-EXCLUDED = {"cf-gears-toolkit-macros-tests", "cf-gears-toolkit-db-macros"}
 
 # Test *execution* cost that source size cannot see, as a share of the whole
 # set's source weight. cf-gears-bss-pricing runs ~3,500 tests averaging ~0.6 s
@@ -150,17 +146,23 @@ def shard_packages(index: int, count: int, excluded: set[str]) -> list[str]:
 
 def main(argv: list[str]) -> int:
     try:
-        flags = [a for a in argv if a.startswith("--")]
-        positional = [a for a in argv if not a.startswith("--")]
-        if set(flags) - {"--all-members"} or len(positional) != 1:
+        positional, excluded = [], set()
+        args = iter(argv)
+        for arg in args:
+            if arg == "--exclude":
+                excluded.add(next(args))
+            elif arg.startswith("--"):
+                raise ValueError
+            else:
+                positional.append(arg)
+        if len(positional) != 1:
             raise ValueError
         index, count = (int(x) for x in positional[0].split("/"))
         if not 1 <= index <= count:
             raise ValueError
-    except ValueError:
-        print("usage: test_shard.py INDEX/COUNT [--all-members] (e.g. 1/2)", file=sys.stderr)
+    except (ValueError, StopIteration):
+        print("usage: test_shard.py INDEX/COUNT [--exclude PKG]... (e.g. 1/2)", file=sys.stderr)
         return 1
-    excluded = set() if "--all-members" in flags else EXCLUDED
     try:
         packages = shard_packages(index, count, excluded)
         features = workspace_features(packages)

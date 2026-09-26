@@ -535,12 +535,12 @@ jobs:
       - name: cargo test (trybuild / compile-fail suites)
         run: make test-trybuild
 
-  # Two groups on separate runners. Run serially in one job the suites took
-  # ~22.6 min plus setup (run 36234405629); split by measured suite time into
-  # ~11 min each. Every suite keeps its own step and make target; `group`
-  # only decides which runner runs it.
+  # The CI integration suites, as two lists in the Makefile
+  # (INTEGRATION_SUITES_1 / _2) run on separate runners. Serially in one job
+  # they took ~22.6 min plus setup (run 36234405629); the lists split them into
+  # ~11 min each. To add a suite to CI, add its make target to one of the lists.
   integration:
-    name: Integration tests (${{ matrix.group }})
+    name: Integration tests (${{ matrix.group }}/2)
     needs: changes
     if: >-
       !cancelled()
@@ -553,7 +553,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [ bss + macros, platform + db ]
+        group: [ 1, 2 ]
     env:
       RUSTFLAGS: "-C debuginfo=0"
     steps:
@@ -639,84 +639,35 @@ jobs:
         shell: bash
         run: df -h .
 
-      - name: UI tests for toolkit macros libraries
-        if: matrix.group == 'bss + macros'
-        run: make test-macros
-
-      - name: Test users_info with Postgres (integration)
-        if: matrix.group == 'bss + macros'
-        run: make test-users-info-pg
-
-      - name: Test timescaledb usage-collector plugin (pg integration)
-        if: matrix.group == 'platform + db'
-        run: make test-usage-collector-pg
-
-      - name: Test postgres-cluster-plugin (pg integration)
-        if: matrix.group == 'platform + db'
-        run: make test-cluster-pg
-
-      - name: Test k8s-cluster-plugin (k3s L2+L3 integration)
-        if: matrix.group == 'platform + db'
-        # k3s runs in a **privileged** container (testcontainers-modules sets it);
-        # GitHub-hosted ubuntu runners permit that. The target uses `cargo test`, not
-        # nextest, so one k3s container is shared per test binary -- see the Makefile.
-        run: make test-cluster-k8s
-
-      - name: Test resource-group (pg smoke, integration)
-        if: matrix.group == 'platform + db'
-        # Fail if Docker is unreachable instead of letting the suite skip itself
-        # into a green step that asserted nothing.
+      # Runs INTEGRATION_SUITES_<group> from the Makefile, in order, stopping
+      # at the first failure. Each suite's output starts with its own
+      # `▶ make test-...` banner. Notes on individual suites:
+      #   - test-cluster-k8s: k3s runs in a **privileged** container
+      #     (testcontainers-modules sets it); GitHub-hosted ubuntu runners
+      #     permit that. The target uses `cargo test`, not nextest, so one k3s
+      #     container is shared per test binary -- see the Makefile.
+      #   - test-pricing-pg: bss-pricing's Postgres tests are `#[ignore]`d
+      #     behind Docker and ran in no job until 2026-08-11 -- every
+      #     concurrency and trigger proof the crate owns lives in them. The
+      #     target passes `--no-fail-fast`; see the Makefile.
+      #   - test-coord-pg: coord's `m0001_...` writes two independent SQL
+      #     literals and only the SQLite one is reachable from the in-crate
+      #     tests, so the Postgres one (the `IF NOT EXISTS` that stops the
+      #     bss-pricing-beside-bss-ledger boot crash, and the `in_schema("bss")`
+      #     form both gears pass) needs this suite.
+      - name: Integration suites (list ${{ matrix.group }})
         env:
+          # test-rg-pg: fail if Docker is unreachable instead of letting the
+          # suite skip itself into a green step that asserted nothing.
           RG_PG_REQUIRE_DOCKER: "1"
-        run: make test-rg-pg
-
-      # bss-pricing's Postgres tests are `#[ignore]`d behind Docker and ran in
-      # no job until 2026-08-11 — every concurrency and trigger proof the crate
-      # owns lives in them. This job already has Docker. The target passes
-      # `--no-fail-fast`; see the Makefile for what the default cost on 2026-08-18.
-      - name: Test bss-pricing with Postgres (integration)
-        if: matrix.group == 'bss + macros'
-        run: make test-pricing-pg
-
-      # coord's `m0001_…` writes two independent SQL literals and only the
-      # SQLite one is reachable from the in-crate tests — so the `IF NOT EXISTS`
-      # that stops the `bss-pricing`-beside-`bss-ledger` boot crash, and the
-      # `in_schema("bss")` form both gears actually pass, ran in no job.
-      - name: Test coord with Postgres (integration)
-        if: matrix.group == 'bss + macros'
-        run: make test-coord-pg
-
-      - name: Test redis-cluster-plugin (redis integration)
-        if: matrix.group == 'platform + db'
-        run: make test-cluster-redis
-
-      - name: Test toolkit-db (sqlite integration)
-        if: matrix.group == 'platform + db'
-        run: make test-sqlite
-
-      - name: Test toolkit-db (pg integration)
-        if: matrix.group == 'platform + db'
-        run: make test-pg
-
-      - name: Test toolkit-db (pgq unit + PG19 integration)
-        if: matrix.group == 'platform + db'
-        # Compiles and runs everything behind the `pgq` feature — the secure
-        # graph builder, its unit suites and the trybuild guards — and the
-        # PostgreSQL 19 integration suite. Locally that suite skips itself while
-        # the pre-GA PG19 image is unavailable; here the skip is a failure, so
-        # the isolation suite cannot pass green and empty (see
-        # libs/test-containers::graph_lane_required).
-        env:
+          # test-pgq: compiles and runs everything behind the `pgq` feature
+          # (the secure graph builder, its unit suites and the trybuild
+          # guards) and the PostgreSQL 19 integration suite. Locally that
+          # suite skips itself while the pre-GA PG19 image is unavailable;
+          # here the skip is a failure, so it cannot pass green and empty
+          # (see libs/test-containers::graph_lane_required).
           GEARS_TEST_PG_GRAPH_REQUIRED: "1"
-        run: make test-pgq
-
-      - name: Test toolkit-db (mysql integration)
-        if: matrix.group == 'platform + db'
-        run: make test-mysql
-
-      - name: Test types-registry (db integration)
-        if: matrix.group == 'platform + db'
-        run: make test-types-registry-db
+        run: make test-integration-${{ matrix.group }}
 
   test-fips:
     name: FIPS verification (${{ matrix.os }})
@@ -982,7 +933,7 @@ jobs:
   # In one job it took ~37 min warm (instrumented build 14.5 min, tests
   # 13.6 min, run 36229001448), the longest job in CI. The shards use the same
   # split as the sharded test legs (tools/scripts/test_shard.py), with
-  # --all-members because coverage measures the whole workspace, and each
+  # no --exclude, because coverage measures the whole workspace, and each
   # shard's members keep the features they get under --workspace.
   coverage:
     name: Code Coverage (cargo-llvm-cov, shard ${{ matrix.shard }})
@@ -1102,7 +1053,7 @@ jobs:
         run: |
           set -euo pipefail
           cargo llvm-cov clean --workspace
-          scope="$(python3 tools/scripts/test_shard.py ${{ matrix.shard }} --all-members)"
+          scope="$(python3 tools/scripts/test_shard.py ${{ matrix.shard }})"
           echo "shard ${{ matrix.shard }}: $scope"
           # Pass 1: this shard's packages, default features. Accumulate, don't report.
           # shellcheck disable=SC2086 # $scope is a list of cargo arguments
