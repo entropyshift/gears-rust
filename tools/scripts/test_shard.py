@@ -22,7 +22,11 @@ macOS cargo timings of CI run 36195700995 it correlates at 0.96, and the
 resulting two shards differ by ~6%. New crates are placed automatically.
 
 Usage:
-  test_shard.py INDEX/COUNT        e.g. 1/2
+  test_shard.py INDEX/COUNT [--all-members]      e.g. 1/2
+
+--all-members shards every workspace member, EXCLUDED ones included. The
+coverage job uses it: it measures the whole workspace (`--workspace`), unlike
+`make test-no-macros`, which leaves the EXCLUDED macro crates to its own target.
 
 Exit codes:
   0 - Arguments printed on stdout
@@ -88,13 +92,13 @@ def workspace_features(names: list[str]) -> list[str]:
     )
 
 
-def shard_packages(index: int, count: int) -> list[str]:
+def shard_packages(index: int, count: int, excluded: set[str]) -> list[str]:
     metadata = cargo_json("metadata", "--no-deps", "--format-version", "1")
     members = set(metadata["workspace_members"])
     weights = {
         p["name"]: source_bytes(Path(p["manifest_path"]).parent)
         for p in metadata["packages"]
-        if p["id"] in members and p["name"] not in EXCLUDED
+        if p["id"] in members and p["name"] not in excluded
     }
     total = sum(weights.values())
     for name, share in EXTRA_WEIGHT_SHARE.items():
@@ -110,14 +114,19 @@ def shard_packages(index: int, count: int) -> list[str]:
 
 def main(argv: list[str]) -> int:
     try:
-        index, count = (int(x) for x in argv[0].split("/"))
+        flags = [a for a in argv if a.startswith("--")]
+        positional = [a for a in argv if not a.startswith("--")]
+        if set(flags) - {"--all-members"} or len(positional) != 1:
+            raise ValueError
+        index, count = (int(x) for x in positional[0].split("/"))
         if not 1 <= index <= count:
             raise ValueError
-    except (IndexError, ValueError):
-        print("usage: test_shard.py INDEX/COUNT (e.g. 1/2)", file=sys.stderr)
+    except ValueError:
+        print("usage: test_shard.py INDEX/COUNT [--all-members] (e.g. 1/2)", file=sys.stderr)
         return 1
+    excluded = set() if "--all-members" in flags else EXCLUDED
     try:
-        packages = shard_packages(index, count)
+        packages = shard_packages(index, count, excluded)
         features = workspace_features(packages)
     except subprocess.CalledProcessError as e:
         print(f"{' '.join(e.cmd)} failed:\n{e.stderr}", file=sys.stderr)

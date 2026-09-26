@@ -952,8 +952,15 @@ jobs:
       - name: cargo deny check
         run: make deny
 
+  # Coverage runs as two package shards on separate runners, then the
+  # `coverage-report` job below sends both reports to Codecov in one upload.
+  # In one job it took ~37 min warm (instrumented build 14.5 min, tests
+  # 13.6 min, run 36229001448), the longest job in CI. The shards use the same
+  # split as the sharded test legs (tools/scripts/test_shard.py), with
+  # --all-members because coverage measures the whole workspace, and each
+  # shard's members keep the features they get under --workspace.
   coverage:
-    name: Code Coverage (cargo-llvm-cov)
+    name: Code Coverage (cargo-llvm-cov, shard ${{ matrix.shard }})
     needs: changes
     if: >-
       !cancelled()
@@ -967,7 +974,14 @@ jobs:
     timeout-minutes: 90
     permissions:
       contents: read
-      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 1/2
+            index: 1
+          - shard: 2/2
+            index: 2
     steps:
       # Restored for this job only. The branch drops free-disk-space elsewhere
       # (runners start with ~88 GB free), but since that was measured upstream
@@ -1037,16 +1051,17 @@ jobs:
         shell: bash
         run: df -h .
 
-      # Generate lcov.info for upload. Customize flags/features as needed.
+      # Generate this shard's lcov file.
       #
-      # Two instrumented passes are accumulated (`--no-report`) into one target
-      # dir and merged into a single lcov.info at the end (`report`):
+      # Instrumented passes are accumulated (`--no-report`) into one target
+      # dir and merged into the shard's lcov file at the end (`report`):
       #
-      #   1. `nextest --workspace` — the whole workspace at default features.
-      #   2. The redis-cluster-plugin integration suites. These live behind
-      #      `required-features = ["integration"]`.
-      #   3. The k8s-cluster-plugin L2/L3 k3s suites. These live behind
-      #      `required-features = ["integration"]`.
+      #   1. `nextest` over this shard's packages (the two shards together are
+      #      the whole workspace at default features).
+      #   2. Shard 2 only: the redis-cluster-plugin integration suites. These
+      #      live behind `required-features = ["integration"]`.
+      #   3. Shard 2 only: the k8s-cluster-plugin L2/L3 k3s suites. These live
+      #      behind `required-features = ["integration"]`.
       #
       # The per-binary k3s loop (one container per binary, cleaned between —
       # nextest's process-per-test would start ~70 of them) lives in the
@@ -1058,26 +1073,75 @@ jobs:
           RUSTFLAGS: "-C debuginfo=0 --cfg coverage_nightly"
           CARGO_LLVM_COV_TARGET_DIR: llvm-cov-target
           CARGO_LLVM_COV_BUILD_DIR: llvm-cov-build
+        shell: bash
         run: |
+          set -euo pipefail
           cargo llvm-cov clean --workspace
-          # Pass 1: whole workspace, default features. Accumulate, don't report.
-          cargo llvm-cov nextest --workspace --no-report
-          # Pass 2: redis-cluster-plugin integration suites (real Redis via
-          # testcontainers).
-          cargo llvm-cov nextest --no-report -p cf-redis-cluster-plugin --features integration --retries 1
-          # Pass 3: k8s-cluster-plugin k3s suites
-          make coverage-cluster-k8s
-          # Merge into the single report that gets uploaded.
-          cargo llvm-cov report --lcov --output-path lcov.info
+          scope="$(python3 tools/scripts/test_shard.py ${{ matrix.shard }} --all-members)"
+          echo "shard ${{ matrix.shard }}: $scope"
+          # Pass 1: this shard's packages, default features. Accumulate, don't report.
+          # shellcheck disable=SC2086 # $scope is a list of cargo arguments
+          cargo llvm-cov nextest --no-report $scope
+          if [[ "${{ matrix.shard }}" == "2/2" ]]; then
+            # Pass 2: redis-cluster-plugin integration suites (real Redis via
+            # testcontainers).
+            cargo llvm-cov nextest --no-report -p cf-redis-cluster-plugin --features integration --retries 1
+            # Pass 3: k8s-cluster-plugin k3s suites
+            make coverage-cluster-k8s
+          fi
+          # Merge this shard's passes into its lcov file.
+          cargo llvm-cov report --lcov --output-path lcov-shard-${{ matrix.index }}.info
 
-      # Upload LCOV report as a GitHub Actions artifact so it is always
+      # Peak disk use, to decide whether the free-disk-space step above is
+      # still needed now that each shard builds half the workspace.
+      - name: Disk usage after coverage
+        if: always()
+        shell: bash
+        run: |
+          df -h .
+          du -sh llvm-cov-target llvm-cov-build target 2>/dev/null || true
+
+      - name: Upload shard LCOV
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rust-coverage-lcov-shard-${{ matrix.index }}
+          path: lcov-shard-${{ matrix.index }}.info
+          if-no-files-found: error
+          retention-days: 14
+
+  # Collects both coverage shards and uploads them to Codecov as one upload,
+  # which Codecov merges into a single report. One upload (rather than one per
+  # shard) keeps Codecov from computing a status on half the data: the repo's
+  # .codecov.yml has no after_n_builds.
+  coverage-report:
+    name: Code Coverage (cargo-llvm-cov)
+    needs: coverage
+    if: ${{ !cancelled() && needs.coverage.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # The Codecov CLI maps the absolute paths in the reports onto the
+      # repository's files, so it needs the checkout.
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download shard LCOV files
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: rust-coverage-lcov-shard-*
+          merge-multiple: true
+
+      # Upload LCOV reports as a GitHub Actions artifact so they are always
       # available, even when Codecov is unavailable or rejects the upload.
       - name: Upload LCOV artifact
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: rust-coverage-lcov
-          path: lcov.info
+          path: lcov-shard-*.info
           if-no-files-found: error
           retention-days: 14
 
@@ -1087,10 +1151,10 @@ jobs:
       # fail_ci_if_error is true for non-fork events so upload failures are
       # visible; for fork PRs it is best-effort (tokenless can be rate-limited).
       # disable_search prevents auto-discovery of unrelated files (e.g.
-      # coverage_guard.rs) — only lcov.info is sent.
+      # coverage_guard.rs) — only the shard LCOV files are sent.
       # Upstream only. A fork's own push/dispatch runs take the OIDC path for
       # a repository Codecov does not know ("Repository not found") and fail
-      # the job; they keep the lcov.info artifact above. Fork PRs to upstream
+      # the job; they keep the LCOV artifact above. Fork PRs to upstream
       # still upload: they run in upstream's context, where github.repository
       # is the upstream repo.
       - name: Upload to Codecov
@@ -1098,7 +1162,7 @@ jobs:
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           use_oidc: ${{ github.event_name != 'pull_request' }}
-          files: lcov.info
+          files: lcov-shard-1.info,lcov-shard-2.info
           disable_search: true
           fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
 
