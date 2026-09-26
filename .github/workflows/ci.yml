@@ -1073,7 +1073,13 @@ jobs:
       # visible; for fork PRs it is best-effort (tokenless can be rate-limited).
       # disable_search prevents auto-discovery of unrelated files (e.g.
       # coverage_guard.rs) — only lcov.info is sent.
+      # Upstream only. A fork's own push/dispatch runs take the OIDC path for
+      # a repository Codecov does not know ("Repository not found") and fail
+      # the job; they keep the lcov.info artifact above. Fork PRs to upstream
+      # still upload: they run in upstream's context, where github.repository
+      # is the upstream repo.
       - name: Upload to Codecov
+        if: github.repository == 'constructorfabric/gears-rust'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           use_oidc: ${{ github.event_name != 'pull_request' }}
