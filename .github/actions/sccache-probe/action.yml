@@ -1,43 +1,27 @@
 name: Probe sccache & set RUSTC_WRAPPER
 description: >-
-  Start the sccache server on the first configured cache storage and enable it
-  as RUSTC_WRAPPER. Order: Cloudflare R2, then any S3-compatible storage, then
-  the GitHub Actions cache, then plain rustc. Never fails the job. Run after
-  mozilla-actions/sccache-action has installed the binary.
+  Start the sccache server on the configured S3-compatible storage, or else on
+  the GitHub Actions cache, and enable it as RUSTC_WRAPPER; plain rustc if
+  neither starts. Never fails the job. Run after mozilla-actions/sccache-action
+  has installed the binary.
 
 # Every workflow passes the same storage settings, defined once per file as
-# the `&cache-storage` YAML anchor. cargo-gears-bin takes the same inputs.
+# the `&cache-storage` YAML anchor; cargo-gears-bin takes the same inputs.
 # Repository settings (Settings -> Secrets and variables -> Actions):
-#   R2:  vars R2_ENDPOINT, R2_BUCKET; secrets R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
-#   S3:  vars S3_BUCKET, S3_REGION and/or S3_ENDPOINT; secrets S3_ACCESS_KEY_ID,
-#        S3_SECRET_ACCESS_KEY. AWS S3: set S3_REGION. Other S3-compatible
-#        storage (MinIO, Ceph, B2, ...): set S3_ENDPOINT, and S3_REGION if it
-#        needs one.
-# A storage is used only when all of its settings are present, so runs
-# without the secrets (PRs from forks) fall through to the GitHub cache.
+#   vars    S3_BUCKET; S3_ENDPOINT for anything but AWS S3
+#           (e.g. https://<account>.r2.cloudflarestorage.com for Cloudflare
+#           R2, or a MinIO / Ceph / B2 URL); S3_REGION if the storage needs
+#           one (AWS S3: the bucket's region; R2: auto). Default: us-east-1.
+#   secrets S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY
+# The storage is used only when the bucket and both keys are present, so runs
+# without the secrets (PRs from forks) use the GitHub Actions cache.
 inputs:
-  r2-endpoint:
-    description: R2 S3 endpoint, https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-    required: false
-    default: ""
-  r2-bucket:
-    description: R2 bucket name
-    required: false
-    default: ""
-  r2-access-key-id:
-    description: R2 API token access key id
-    required: false
-    default: ""
-  r2-secret-access-key:
-    description: R2 API token secret access key
-    required: false
-    default: ""
   s3-endpoint:
     description: S3-compatible endpoint URL; empty for AWS S3
     required: false
     default: ""
   s3-region:
-    description: S3 region; required for AWS S3
+    description: S3 region; defaults to us-east-1
     required: false
     default: ""
   s3-bucket:
@@ -66,15 +50,11 @@ runs:
     # steps (the build, tests, the sccache-action post step) only talk to
     # that server. SCCACHE_IDLE_TIMEOUT=0 at workflow level keeps it alive.
     #
-    # A storage that is configured but fails to start falls through to the
-    # next one, down to plain rustc.
+    # S3 storage that is configured but fails to start falls through to the
+    # GitHub Actions cache, then to plain rustc.
     - name: Probe sccache & set RUSTC_WRAPPER
       shell: bash
       env:
-        R2_ENDPOINT: ${{ inputs.r2-endpoint }}
-        R2_BUCKET: ${{ inputs.r2-bucket }}
-        R2_ACCESS_KEY_ID: ${{ inputs.r2-access-key-id }}
-        R2_SECRET_ACCESS_KEY: ${{ inputs.r2-secret-access-key }}
         S3_ENDPOINT: ${{ inputs.s3-endpoint }}
         S3_REGION: ${{ inputs.s3-region }}
         S3_BUCKET: ${{ inputs.s3-bucket }}
@@ -91,30 +71,23 @@ runs:
           return 1
         }
 
-        # start_s3 LABEL ENDPOINT REGION BUCKET KEY_ID SECRET
-        # An empty ENDPOINT means AWS S3 (sccache's default endpoint).
+        # An empty endpoint means AWS S3 (sccache's default endpoint).
         start_s3() {
           local rc=0
-          if [[ -n "$2" ]]; then export SCCACHE_ENDPOINT="$2"; fi
-          SCCACHE_REGION="$3" \
-            SCCACHE_BUCKET="$4" \
+          if [[ -n "$S3_ENDPOINT" ]]; then export SCCACHE_ENDPOINT="$S3_ENDPOINT"; fi
+          SCCACHE_REGION="${S3_REGION:-us-east-1}" \
+            SCCACHE_BUCKET="$S3_BUCKET" \
             SCCACHE_S3_KEY_PREFIX=gears-rust/sccache/ \
-            AWS_ACCESS_KEY_ID="$5" \
-            AWS_SECRET_ACCESS_KEY="$6" \
-            start "$1" || rc=$?
+            AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" \
+            AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
+            start s3 || rc=$?
           unset SCCACHE_ENDPOINT
           return "$rc"
         }
 
-        r2_set() { [[ -n "$R2_ENDPOINT" && -n "$R2_BUCKET" && -n "$R2_ACCESS_KEY_ID" && -n "$R2_SECRET_ACCESS_KEY" ]]; }
-        s3_set() { [[ -n "$S3_BUCKET" && -n "$S3_ACCESS_KEY_ID" && -n "$S3_SECRET_ACCESS_KEY" && ( -n "$S3_REGION" || -n "$S3_ENDPOINT" ) ]]; }
-
-        if r2_set && start_s3 "Cloudflare R2" "$R2_ENDPOINT" auto "$R2_BUCKET" "$R2_ACCESS_KEY_ID" "$R2_SECRET_ACCESS_KEY"; then
+        if [[ -n "$S3_BUCKET" && -n "$S3_ACCESS_KEY_ID" && -n "$S3_SECRET_ACCESS_KEY" ]] && start_s3; then
           echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-          echo "::notice::sccache backend: Cloudflare R2"
-        elif s3_set && start_s3 "S3" "$S3_ENDPOINT" "${S3_REGION:-auto}" "$S3_BUCKET" "$S3_ACCESS_KEY_ID" "$S3_SECRET_ACCESS_KEY"; then
-          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-          echo "::notice::sccache backend: S3-compatible storage"
+          echo "::notice::sccache backend: S3 storage (${S3_ENDPOINT:-AWS S3})"
         elif SCCACHE_GHA_ENABLED=true start gha; then
           echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
           echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"

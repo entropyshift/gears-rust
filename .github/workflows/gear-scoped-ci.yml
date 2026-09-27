@@ -243,10 +243,6 @@ jobs:
         uses: ./.github/actions/sccache-probe
         # Cache storage settings; see .github/actions/sccache-probe.
         with:
-          r2-endpoint: ${{ vars.R2_ENDPOINT }}
-          r2-bucket: ${{ vars.R2_BUCKET }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           s3-endpoint: ${{ vars.S3_ENDPOINT }}
           s3-region: ${{ vars.S3_REGION }}
           s3-bucket: ${{ vars.S3_BUCKET }}

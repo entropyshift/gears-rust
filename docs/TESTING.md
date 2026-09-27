@@ -483,12 +483,24 @@ To reproduce one shard locally: `make test-no-macros TEST_SHARD=1/2`.
 
 ### 7.5 CI build cache storage
 
-CI keeps compiled crates (sccache) and the pinned `cargo-gears` binary in the first storage
-that is fully configured in the repository settings (*Settings → Secrets and variables →
-Actions*); with none configured it uses the GitHub Actions cache.
+CI keeps compiled crates (sccache) and the pinned `cargo-gears` binary in S3-compatible
+storage when one is configured in the repository settings (*Settings → Secrets and
+variables → Actions*), and in the GitHub Actions cache otherwise.
 
-| Order | Storage | Variables | Secrets |
-|-------|---------|-----------|---------|
+| Setting | Kind | Value |
+|---------|------|-------|
+| `S3_BUCKET` | variable | bucket name |
+| `S3_ENDPOINT` | variable | empty for AWS S3; otherwise the provider's S3 URL, e.g. `https://<account>.r2.cloudflarestorage.com` (Cloudflare R2) or a MinIO / Ceph / B2 URL |
+| `S3_REGION` | variable | if the storage needs one: AWS S3 the bucket's region, R2 `auto`; default `us-east-1` |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | secrets | an access key with read/write access to the bucket |
+
+The storage is used when the bucket and both keys are set; runs that cannot see the
+secrets, such as PRs from forks, use the GitHub Actions cache. Objects are written under
+the `gears-rust/` prefix of the bucket; an expiry rule on `gears-rust/sccache/` (e.g. 30
+days) keeps it from growing without bound. Each job's log shows the storage it picked
+(`sccache backend: …`).
+
+-------|---------|-----------|---------|
 | 1 | Cloudflare R2 | `R2_ENDPOINT` (`https://<account>.r2.cloudflarestorage.com`), `R2_BUCKET` | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` |
 | 2 | S3-compatible (AWS S3, MinIO, Ceph, B2, …) | `S3_BUCKET`; `S3_REGION` for AWS S3, `S3_ENDPOINT` for other providers | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` |
 | 3 | GitHub Actions cache | — | — |

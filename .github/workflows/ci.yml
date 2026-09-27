@@ -214,10 +214,6 @@ jobs:
         # Cache storage settings, defined once here and reused by every step
         # below as `*cache-storage` (see .github/actions/sccache-probe).
         with: &cache-storage
-          r2-endpoint: ${{ vars.R2_ENDPOINT }}
-          r2-bucket: ${{ vars.R2_BUCKET }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           s3-endpoint: ${{ vars.S3_ENDPOINT }}
           s3-region: ${{ vars.S3_REGION }}
           s3-bucket: ${{ vars.S3_BUCKET }}
@@ -390,9 +386,9 @@ jobs:
             cargo-registry-${{ runner.os }}-
 
       # Pinned cargo-gears binary for `make install-tools` (see the workflow-
-      # level GEARS_CLI_VERSION). Kept in the same storage as sccache: R2, else
-      # S3-compatible storage, else (e.g. PRs from forks) the GitHub Actions
-      # cache, restore-only on pull_request. Storage details and the
+      # level GEARS_CLI_VERSION). Kept in the same storage as sccache: the
+      # configured S3-compatible storage, else (e.g. PRs from forks) the GitHub
+      # Actions cache, restore-only on pull_request. Storage details and the
       # partial-binary guards are in the action. Must stay before the sccache
       # probe: see the action for why the source build skips sccache.
       - name: Install cargo-gears
