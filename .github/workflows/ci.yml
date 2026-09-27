@@ -211,11 +211,18 @@ jobs:
 
       - name: Probe sccache & set RUSTC_WRAPPER
         uses: ./.github/actions/sccache-probe
-        with:
+        # Cache storage settings, defined once here and reused by every step
+        # below as `*cache-storage` (see .github/actions/sccache-probe).
+        with: &cache-storage
           r2-endpoint: ${{ vars.R2_ENDPOINT }}
           r2-bucket: ${{ vars.R2_BUCKET }}
           r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
           r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          s3-endpoint: ${{ vars.S3_ENDPOINT }}
+          s3-region: ${{ vars.S3_REGION }}
+          s3-bucket: ${{ vars.S3_BUCKET }}
+          s3-access-key-id: ${{ secrets.S3_ACCESS_KEY_ID }}
+          s3-secret-access-key: ${{ secrets.S3_SECRET_ACCESS_KEY }}
 
       # free-disk-space cleanup was removed (runners start with ~88 GB free);
       # this guard keeps disk headroom visible in logs in case that changes.
@@ -383,20 +390,14 @@ jobs:
             cargo-registry-${{ runner.os }}-
 
       # Pinned cargo-gears binary for `make install-tools` (see the workflow-
-      # level GEARS_CLI_VERSION). Kept in Cloudflare R2 when the R2 secrets
-      # are available; runs without them (PRs from forks) use the GitHub
-      # Actions cache, restore-only on pull_request. Storage details and the
+      # level GEARS_CLI_VERSION). Kept in the same storage as sccache: R2, else
+      # S3-compatible storage, else (e.g. PRs from forks) the GitHub Actions
+      # cache, restore-only on pull_request. Storage details and the
       # partial-binary guards are in the action. Must stay before the sccache
       # probe: see the action for why the source build skips sccache.
       - name: Install cargo-gears
         uses: ./.github/actions/cargo-gears-bin
-        with:
-          version: ${{ env.GEARS_CLI_VERSION }}
-          save-gha: ${{ github.event_name != 'pull_request' }}
-          r2-endpoint: ${{ vars.R2_ENDPOINT }}
-          r2-bucket: ${{ vars.R2_BUCKET }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        with: *cache-storage
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -405,11 +406,7 @@ jobs:
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
         uses: ./.github/actions/sccache-probe
-        with:
-          r2-endpoint: ${{ vars.R2_ENDPOINT }}
-          r2-bucket: ${{ vars.R2_BUCKET }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        with: *cache-storage
 
       # free-disk-space cleanup was removed (runners start with ~88 GB free);
       # this guard keeps disk headroom visible in logs in case that changes.
@@ -512,24 +509,14 @@ jobs:
       # test job's copy of this step.
       - name: Install cargo-gears
         uses: ./.github/actions/cargo-gears-bin
-        with:
-          version: ${{ env.GEARS_CLI_VERSION }}
-          save-gha: ${{ github.event_name != 'pull_request' }}
-          r2-endpoint: ${{ vars.R2_ENDPOINT }}
-          r2-bucket: ${{ vars.R2_BUCKET }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        with: *cache-storage
 
       - name: Install sccache
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Probe sccache & set RUSTC_WRAPPER
         uses: ./.github/actions/sccache-probe
-        with:
-          r2-endpoint: ${{ vars.R2_ENDPOINT }}
-          r2-bucket: ${{ vars.R2_BUCKET }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        with: *cache-storage
 
       # Checks first that the two nextest profiles are still exact complements.
       - name: cargo test (trybuild / compile-fail suites)
@@ -613,13 +600,7 @@ jobs:
       # test job's copy of this step.
       - name: Install cargo-gears
         uses: ./.github/actions/cargo-gears-bin
-        with:
-          version: ${{ env.GEARS_CLI_VERSION }}
-          save-gha: ${{ github.event_name != 'pull_request' }}
-          r2-endpoint: ${{ vars.R2_ENDPOINT }}
-          r2-bucket: ${{ vars.R2_BUCKET }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        with: *cache-storage
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -628,11 +609,7 @@ jobs:
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
         uses: ./.github/actions/sccache-probe
-        with:
-          r2-endpoint: ${{ vars.R2_ENDPOINT }}
-          r2-bucket: ${{ vars.R2_BUCKET }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        with: *cache-storage
 
       # Headroom after the cleanup step above, for the record.
       - name: Disk headroom (guard)
@@ -749,13 +726,7 @@ jobs:
       - name: Install cargo-gears
         if: runner.os == 'Linux'
         uses: ./.github/actions/cargo-gears-bin
-        with:
-          version: ${{ env.GEARS_CLI_VERSION }}
-          save-gha: ${{ github.event_name != 'pull_request' }}
-          r2-endpoint: ${{ vars.R2_ENDPOINT }}
-          r2-bucket: ${{ vars.R2_BUCKET }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        with: *cache-storage
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -764,11 +735,7 @@ jobs:
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
         uses: ./.github/actions/sccache-probe
-        with:
-          r2-endpoint: ${{ vars.R2_ENDPOINT }}
-          r2-bucket: ${{ vars.R2_BUCKET }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        with: *cache-storage
 
       # free-disk-space cleanup was removed (runners start with ~88 GB free);
       # this guard keeps disk headroom visible in logs in case that changes.
@@ -865,11 +832,7 @@ jobs:
 
       - name: Probe sccache & set RUSTC_WRAPPER
         uses: ./.github/actions/sccache-probe
-        with:
-          r2-endpoint: ${{ vars.R2_ENDPOINT }}
-          r2-bucket: ${{ vars.R2_BUCKET }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        with: *cache-storage
 
       - name: Fetch ONNX Runtime shared library
         shell: bash
@@ -1011,11 +974,7 @@ jobs:
 
       - name: Probe sccache & set RUSTC_WRAPPER
         uses: ./.github/actions/sccache-probe
-        with:
-          r2-endpoint: ${{ vars.R2_ENDPOINT }}
-          r2-bucket: ${{ vars.R2_BUCKET }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        with: *cache-storage
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@9114bf4d891761788c546334fd37538eae1bf8b3 # v2.87.16

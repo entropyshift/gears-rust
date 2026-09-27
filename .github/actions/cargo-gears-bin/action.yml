@@ -1,17 +1,18 @@
 name: Install pinned cargo-gears
 description: >-
   Put a prebuilt cargo-gears binary in ~/.cargo/bin for `make install-tools`,
-  building it from source only on a miss. Stored in Cloudflare R2 when
-  credentials are provided, otherwise in the GitHub Actions cache.
+  building it from source only on a miss. Stored in the first configured
+  storage: Cloudflare R2, then S3-compatible storage, then the GitHub Actions
+  cache.
 
+# Takes the same storage inputs as sccache-probe (the `&cache-storage` YAML
+# anchor in each workflow); see that action for the repository settings.
+# The version comes from the workflow's GEARS_CLI_VERSION.
 inputs:
   version:
-    description: cargo-gears version (must satisfy the Makefile's CARGO_GEARS_MIN_VERSION)
-    required: true
-  save-gha:
-    description: Save to the GitHub Actions cache on a miss (the R2 path always saves)
+    description: cargo-gears version; defaults to the GEARS_CLI_VERSION env var
     required: false
-    default: "false"
+    default: ""
   r2-endpoint:
     description: R2 S3 endpoint, https://<ACCOUNT_ID>.r2.cloudflarestorage.com
     required: false
@@ -28,6 +29,26 @@ inputs:
     description: R2 API token secret access key
     required: false
     default: ""
+  s3-endpoint:
+    description: S3-compatible endpoint URL; empty for AWS S3
+    required: false
+    default: ""
+  s3-region:
+    description: S3 region; required for AWS S3
+    required: false
+    default: ""
+  s3-bucket:
+    description: S3 bucket name
+    required: false
+    default: ""
+  s3-access-key-id:
+    description: S3 access key id
+    required: false
+    default: ""
+  s3-secret-access-key:
+    description: S3 secret access key
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -36,27 +57,52 @@ runs:
     # plain rustc rather than pushing release-profile objects of a tool build,
     # which no other job can reuse, into the shared sccache namespace.
     #
-    # R2 path. The object is `<prefix>/<version>/<OS>/cargo-gears[.exe]`, so a
+    # Picks the storage and the version; only the storage *kind* is an output,
+    # the credentials are read directly from the inputs by the step using them.
+    - name: Select cargo-gears storage
+      id: pick
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version || env.GEARS_CLI_VERSION }}
+        R2_READY: ${{ inputs.r2-endpoint != '' && inputs.r2-bucket != '' && inputs.r2-access-key-id != '' && inputs.r2-secret-access-key != '' }}
+        S3_READY: ${{ inputs.s3-bucket != '' && inputs.s3-access-key-id != '' && inputs.s3-secret-access-key != '' && (inputs.s3-region != '' || inputs.s3-endpoint != '') }}
+      run: |
+        if [[ -z "$VERSION" ]]; then
+          echo "::error::no cargo-gears version: pass \`version\` or set GEARS_CLI_VERSION"
+          exit 1
+        fi
+        if [[ "$R2_READY" == "true" ]]; then kind=r2
+        elif [[ "$S3_READY" == "true" ]]; then kind=s3
+        else kind=gha
+        fi
+        echo "kind=$kind" >> "$GITHUB_OUTPUT"
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+    # Object-storage path (R2 or S3). The object is
+    # `gears-rust/tools/cargo-gears/<version>/<OS>/cargo-gears[.exe]`, so a
     # version bump is a new object. The upload runs only after a successful
     # install (set -e), and an S3 PUT is atomic, so a cancelled job cannot
     # leave a partial binary under the key. Jobs that miss at the same time
     # all upload the same build; the last write wins, harmlessly.
-    - name: cargo-gears via R2
-      if: inputs.r2-access-key-id != '' && inputs.r2-secret-access-key != '' && inputs.r2-endpoint != '' && inputs.r2-bucket != ''
+    - name: cargo-gears via object storage
+      if: steps.pick.outputs.kind != 'gha'
       shell: bash
       env:
-        GEARS_VERSION: ${{ inputs.version }}
-        R2_ENDPOINT: ${{ inputs.r2-endpoint }}
-        R2_BUCKET: ${{ inputs.r2-bucket }}
-        AWS_ACCESS_KEY_ID: ${{ inputs.r2-access-key-id }}
-        AWS_SECRET_ACCESS_KEY: ${{ inputs.r2-secret-access-key }}
-        AWS_DEFAULT_REGION: auto
-        # Newer AWS CLI releases send checksum headers by default that R2 does
-        # not fully support; only send them when an operation requires it.
+        GEARS_VERSION: ${{ steps.pick.outputs.version }}
+        KIND: ${{ steps.pick.outputs.kind }}
+        ENDPOINT: ${{ steps.pick.outputs.kind == 'r2' && inputs.r2-endpoint || inputs.s3-endpoint }}
+        BUCKET: ${{ steps.pick.outputs.kind == 'r2' && inputs.r2-bucket || inputs.s3-bucket }}
+        AWS_ACCESS_KEY_ID: ${{ steps.pick.outputs.kind == 'r2' && inputs.r2-access-key-id || inputs.s3-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ steps.pick.outputs.kind == 'r2' && inputs.r2-secret-access-key || inputs.s3-secret-access-key }}
+        AWS_DEFAULT_REGION: ${{ steps.pick.outputs.kind == 'r2' && 'auto' || inputs.s3-region || 'us-east-1' }}
+        # Newer AWS CLI releases send checksum headers by default that R2 and
+        # some S3-compatible servers do not fully support; only send them when
+        # an operation requires it.
         AWS_REQUEST_CHECKSUM_CALCULATION: when_required
         AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
       run: |
         set -euo pipefail
+        label=$([[ "$KIND" == r2 ]] && echo "R2" || echo "S3")
         exe=""
         bin_dir="$HOME/.cargo/bin"
         if [[ "$RUNNER_OS" == "Windows" ]]; then
@@ -66,46 +112,55 @@ runs:
           bin_dir="$(cygpath -w "$bin_dir")"
           export MSYS_NO_PATHCONV=1
         fi
+        # Self-hosted S3-compatible servers (MinIO and the like) usually need
+        # path-style addressing; AWS S3 and R2 keep the CLI default.
+        if [[ "$KIND" == s3 && -n "$ENDPOINT" ]]; then
+          export AWS_CONFIG_FILE="$RUNNER_TEMP/aws-config"
+          printf '[default]\ns3 =\n    addressing_style = path\n' > "$AWS_CONFIG_FILE"
+        fi
+        endpoint_arg=()
+        [[ -n "$ENDPOINT" ]] && endpoint_arg=(--endpoint-url "$ENDPOINT")
         mkdir -p "$HOME/.cargo/bin"
         local_bin="$bin_dir/cargo-gears$exe"
-        remote="s3://$R2_BUCKET/gears-rust/tools/cargo-gears/$GEARS_VERSION/$RUNNER_OS/cargo-gears$exe"
-        s3() { aws s3 cp --endpoint-url "$R2_ENDPOINT" --only-show-errors "$@"; }
+        remote="s3://$BUCKET/gears-rust/tools/cargo-gears/$GEARS_VERSION/$RUNNER_OS/cargo-gears$exe"
+        # `${a[@]+"${a[@]}"}`: an empty array under `set -u` on any bash.
+        s3() { aws s3 cp ${endpoint_arg[@]+"${endpoint_arg[@]}"} --only-show-errors "$@"; }
 
         if s3 "$remote" "$local_bin"; then
           chmod +x "$HOME/.cargo/bin/cargo-gears$exe"
-          echo "::notice::cargo-gears $GEARS_VERSION restored from R2"
+          echo "::notice::cargo-gears $GEARS_VERSION restored from $label"
         else
-          echo "cargo-gears $GEARS_VERSION not in R2 yet; building from source"
+          echo "cargo-gears $GEARS_VERSION not in $label yet; building from source"
           cargo install --locked "cargo-gears@$GEARS_VERSION"
           s3 "$local_bin" "$remote" \
-            || echo "::warning::could not upload cargo-gears to R2"
+            || echo "::warning::could not upload cargo-gears to $label"
         fi
         "$HOME/.cargo/bin/cargo-gears$exe" --version || true
 
-    # GitHub Actions cache path, for runs without the R2 secrets (PRs from
-    # forks). Restore-only unless save-gha is set. The key is immutable, so
-    # the save sits directly after the install and keeps the default
-    # success() guard: a failed or cancelled install never lands under it.
+    # GitHub Actions cache path, for runs without object-storage secrets (PRs
+    # from forks). Restore-only on pull_request. The key is immutable, so the
+    # save sits directly after the install and keeps the default success()
+    # guard: a failed or cancelled install never lands under it.
     - name: Restore cargo-gears
       id: gha-restore
-      if: inputs.r2-access-key-id == '' || inputs.r2-secret-access-key == '' || inputs.r2-endpoint == '' || inputs.r2-bucket == ''
+      if: steps.pick.outputs.kind == 'gha'
       uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: |
           ~/.cargo/bin/cargo-gears
           ~/.cargo/bin/cargo-gears.exe
-        key: cargo-gears-bin-${{ inputs.version }}-${{ runner.os }}
+        key: cargo-gears-bin-${{ steps.pick.outputs.version }}-${{ runner.os }}
 
     - name: Install cargo-gears
-      if: steps.gha-restore.outcome == 'success' && steps.gha-restore.outputs.cache-hit != 'true'
+      if: steps.pick.outputs.kind == 'gha' && steps.gha-restore.outputs.cache-hit != 'true'
       shell: bash
-      run: cargo install --locked "cargo-gears@${{ inputs.version }}"
+      run: cargo install --locked "cargo-gears@${{ steps.pick.outputs.version }}"
 
     - name: Save cargo-gears
-      if: steps.gha-restore.outcome == 'success' && steps.gha-restore.outputs.cache-hit != 'true' && inputs.save-gha == 'true'
+      if: steps.pick.outputs.kind == 'gha' && steps.gha-restore.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
       uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: |
           ~/.cargo/bin/cargo-gears
           ~/.cargo/bin/cargo-gears.exe
-        key: cargo-gears-bin-${{ inputs.version }}-${{ runner.os }}
+        key: cargo-gears-bin-${{ steps.pick.outputs.version }}-${{ runner.os }}
