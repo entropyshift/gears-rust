@@ -687,7 +687,7 @@ OPENAPI_BUILD_FEATURE_ARGS := $(if $(GEAR),$(GEAR_OPENAPI_FEATURE_ARGS),$(OPENAP
 
 # -------- Tests --------
 
-.PHONY: test test-no-macros test-macros test-trybuild test-integration test-integration-1 test-integration-2 test-sqlite test-pg test-pgq test-mysql test-db test-users-info-pg test-usage-collector-pg test-usage-collector-ch test-types-registry-db test-cluster-pg test-cluster-redis test-cluster-k8s coverage-cluster-k8s test-rg-pg test-settings-service-pg test-pricing-pg test-coord-pg test-products-pg test-fixtures-narrow test-fips
+.PHONY: test test-no-macros test-macros test-trybuild test-sqlite test-pg test-pgq test-mysql test-db test-users-info-pg test-usage-collector-pg test-usage-collector-ch test-types-registry-db test-cluster-pg test-cluster-redis test-cluster-k8s coverage-cluster-k8s test-rg-pg test-settings-service-pg test-pricing-pg test-coord-pg test-products-pg test-fixtures-narrow test-fips
 
 # Run all tests, or a single gear when GEAR=<gear> is set.
 # When GEAR= is set, cargo gears ls packages finds matching crates + their
@@ -742,33 +742,6 @@ test-trybuild: install-tools
 	python3 tools/scripts/check_trybuild_profiles.py $(TRYBUILD_TEST_TARGETS)
 	cargo nextest run --workspace $(addprefix --exclude ,$(NO_MACROS_EXCLUDE)) \
 		$(addprefix --test ,$(TRYBUILD_TEST_TARGETS)) --profile trybuild-only
-
-# Integration suites (Docker / database / service backed) that CI runs, split
-# into two lists of roughly equal run time; CI runs each list on its own
-# runner (`make test-integration-1`, `make test-integration-2`), in order,
-# stopping at the first failure. To add a suite to CI, write its target and
-# append its name to either list; the shorter one keeps the two balanced.
-# Measured time per suite in CI (s, run 36234405629): pricing-pg 413,
-# macros 218, types-registry-db 106, usage-collector-pg 103, cluster-pg 99,
-# sqlite 77, cluster-k8s 67, mysql 62, cluster-redis 46, pg 44, rg-pg 40,
-# pgq 38, users-info-pg 24, coord-pg 18. Not measured yet: usage-collector-ch,
-# settings-service-pg, products-pg (added from main after that run).
-INTEGRATION_SUITES_1 := test-pricing-pg test-macros test-users-info-pg test-coord-pg \
-	test-usage-collector-ch test-settings-service-pg
-INTEGRATION_SUITES_2 := test-types-registry-db test-usage-collector-pg test-cluster-pg \
-	test-sqlite test-cluster-k8s test-mysql test-cluster-redis test-pg test-rg-pg test-pgq \
-	test-products-pg
-
-## Run every CI integration suite (both lists below; Docker required)
-test-integration: test-integration-1 test-integration-2
-
-## Run the first list of CI integration suites
-test-integration-1:
-	@$(MAKE) --no-print-directory $(INTEGRATION_SUITES_1)
-
-## Run the second list of CI integration suites
-test-integration-2:
-	@$(MAKE) --no-print-directory $(INTEGRATION_SUITES_2)
 
 ## Run SQLite integration tests
 test-sqlite: install-tools

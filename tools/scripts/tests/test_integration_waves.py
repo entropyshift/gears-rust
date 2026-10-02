@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -170,6 +172,50 @@ class TestStepSeconds(unittest.TestCase):
             iw.write_timings({"test-a": 300.4, "test-b": 120.0}, "123", p)
             self.assertEqual(iw.load_timings(p), {"test-a": 300.0, "test-b": 120.0, "test-z": 9.0})
             self.assertIn("run 123", p.read_text(encoding="utf-8"))
+
+
+WRAPPER = HERE.parent.parent / "ci" / "wave-bin" / "make"
+
+
+@unittest.skipIf(sys.platform == "win32", "bash wrapper, Linux CI only")
+class TestWrapper(unittest.TestCase):
+    def run_wrapper(self, args, wave, ci_yml=CI_YML):
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            (d / "ci.yml").write_text(ci_yml, encoding="utf-8")
+            (d / "t.toml").write_text("test-macros = 100\ntest-users-info-pg = 50\n", encoding="utf-8")
+            fake = d / "fake-make"
+            fake.write_text('#!/usr/bin/env bash\necho "REAL $*"\n', encoding="utf-8")
+            fake.chmod(0o755)
+            env = dict(os.environ, REAL_MAKE=str(fake),
+                       INTEGRATION_WAVES_CI_YML=str(d / "ci.yml"),
+                       INTEGRATION_WAVES_TIMINGS=str(d / "t.toml"))
+            if wave is None:
+                env.pop("CI_WAVE", None)
+            else:
+                env["CI_WAVE"] = wave
+            r = subprocess.run(["bash", str(WRAPPER), *args], env=env,
+                               capture_output=True, text=True, encoding="utf-8")
+            return r.returncode, r.stdout
+
+    def test_wrapper_runs_own_wave(self):
+        self.assertEqual(self.run_wrapper(["test-macros"], "1/2"), (0, "REAL test-macros\n"))
+
+    def test_wrapper_skips_other_wave(self):
+        code, out = self.run_wrapper(["test-users-info-pg"], "1/2")
+        self.assertEqual(code, 0)
+        self.assertIn("runs in wave 2/2", out)
+        self.assertNotIn("REAL", out)
+
+    def test_wrapper_runs_setup_calls(self):
+        self.assertEqual(self.run_wrapper(["install-tools"], "2/2"), (0, "REAL install-tools\n"))
+
+    def test_wrapper_runs_without_ci_wave(self):
+        self.assertEqual(self.run_wrapper(["test-users-info-pg"], None), (0, "REAL test-users-info-pg\n"))
+
+    def test_wrapper_runs_when_script_fails(self):
+        # A malformed CI_WAVE makes the script exit 1; the step must still run.
+        self.assertEqual(self.run_wrapper(["test-users-info-pg"], "9/2"), (0, "REAL test-users-info-pg\n"))
 
 
 if __name__ == "__main__":

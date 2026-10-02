@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# `make` for the CI integration job, which runs as a matrix of waves
+# (CI_WAVE=1/2, 2/2, ...). A `make test-foo` step whose suite belongs to
+# another wave passes at once; every other call goes to the real make. If
+# the wave script fails, the step runs: a suite may run twice, never zero
+# times. See tools/scripts/integration_waves.py.
+set -uo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+verdict="$(python3 "$here/../../scripts/integration_waves.py" decide "$@" 2>/dev/null)" || verdict=run
+case "$verdict" in
+  skip:*)
+    echo "${verdict#skip: }; nothing to do in this wave."
+    exit 0
+    ;;
+esac
+exec "${REAL_MAKE:-/usr/bin/make}" "$@"

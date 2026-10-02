@@ -121,6 +121,10 @@ jobs:
               - 'tools/scripts/check_trybuild_profiles.py'
               # Picks the packages of each sharded Test Suite leg.
               - 'tools/scripts/test_shard.py'
+              # Places the integration job's suites in waves.
+              - 'tools/scripts/integration_waves.py'
+              - 'tools/ci/wave-bin/**'
+              - '.config/ci-suite-timings.toml'
               # Read by `cargo gears lint --dylint`: DE0708 hasher allow-list and
               # DE1101 exclusions, both designed to be edited on their own.
               - 'dylint.toml'
@@ -361,6 +365,9 @@ jobs:
       - name: PR-review script tests
         run: python3 -m unittest discover -s tools/scripts/toolkit-pr-review/tests
 
+      - name: CI script tests
+        run: python3 -m unittest discover -s tools/scripts/tests
+
       - name: Validate packaging metadata (readme/license-file paths)
         run: make check-packaging-metadata
 
@@ -520,12 +527,12 @@ jobs:
       - name: cargo test (trybuild / compile-fail suites)
         run: make test-trybuild
 
-  # The CI integration suites, as two lists in the Makefile
-  # (INTEGRATION_SUITES_1 / _2) run on separate runners. Serially in one job
-  # they took ~22.6 min plus setup (run 36234405629); the lists split them into
-  # ~11 min each. To add a suite to CI, add its make target to one of the lists.
+  # The CI integration suites, one step each, run as two waves on separate
+  # runners. Serially in one job they took ~22.6 min plus setup (run
+  # 36234405629). Each `make test-*` step runs in one wave only, placed by
+  # tools/scripts/integration_waves.py. To add a suite to CI, add a step below.
   integration:
-    name: Integration tests (${{ matrix.group }}/2)
+    name: Integration tests (wave ${{ matrix.wave }}/2)
     needs: changes
     if: >-
       !cancelled()
@@ -538,9 +545,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [ 1, 2 ]
+        # The wave count: keep the list and the "/2" in CI_WAVE in step.
+        wave: [ 1, 2 ]
     env:
       RUSTFLAGS: "-C debuginfo=0"
+      # Read by the `make` wrapper (tools/ci/wave-bin/make): each `make
+      # test-*` step below runs in one wave only.
+      CI_WAVE: ${{ matrix.wave }}/2
     steps:
       # Restored for this job only. The branch drops free-disk-space elsewhere
       # (runners start with ~88 GB free), but since that was measured upstream
@@ -614,38 +625,101 @@ jobs:
         shell: bash
         run: df -h .
 
-      # Runs INTEGRATION_SUITES_<group> from the Makefile, in order, stopping
-      # at the first failure. Each suite's output starts with its own
-      # `▶ make test-...` banner. Notes on individual suites:
-      #   - test-cluster-k8s: k3s runs in a **privileged** container
-      #     (testcontainers-modules sets it); GitHub-hosted ubuntu runners
-      #     permit that. The target uses `cargo test`, not nextest, so one k3s
-      #     container is shared per test binary -- see the Makefile.
-      #   - test-pricing-pg: bss-pricing's Postgres tests are `#[ignore]`d
-      #     behind Docker and ran in no job until 2026-08-11 -- every
-      #     concurrency and trigger proof the crate owns lives in them. The
-      #     target passes `--no-fail-fast`; see the Makefile.
-      #   - test-coord-pg: coord's `m0001_...` writes two independent SQL
-      #     literals and only the SQLite one is reachable from the in-crate
-      #     tests, so the Postgres one (the `IF NOT EXISTS` that stops the
-      #     bss-pricing-beside-bss-ledger boot crash, and the `in_schema("bss")`
-      #     form both gears pass) needs this suite.
-      - name: Integration suites (list ${{ matrix.group }})
+      # Every `make test-*` step below runs in one wave only, picked by
+      # tools/scripts/integration_waves.py from these steps and
+      # .config/ci-suite-timings.toml. To add a suite to CI, add a step here
+      # as usual; it is placed automatically.
+      - name: Pick this wave's suites
+        shell: bash
+        run: |
+          echo "$GITHUB_WORKSPACE/tools/ci/wave-bin" >> "$GITHUB_PATH"
+          python3 tools/scripts/integration_waves.py plan >> "$GITHUB_STEP_SUMMARY"
+          python3 tools/scripts/integration_waves.py plan
+
+      - name: UI tests for toolkit macros libraries
+        run: make test-macros
+
+      - name: Test users_info with Postgres (integration)
+        run: make test-users-info-pg
+
+      - name: Test timescaledb usage-collector plugin (pg integration)
+        run: make test-usage-collector-pg
+
+      - name: Test clickhouse usage-collector plugin (ch integration)
+        run: make test-usage-collector-ch
+
+      - name: Test postgres-cluster-plugin (pg integration)
+        run: make test-cluster-pg
+
+      - name: Test k8s-cluster-plugin (k3s L2+L3 integration)
+        # k3s runs in a **privileged** container (testcontainers-modules sets it);
+        # GitHub-hosted ubuntu runners permit that. The target uses `cargo test`, not
+        # nextest, so one k3s container is shared per test binary -- see the Makefile.
+        run: make test-cluster-k8s
+
+      - name: Test resource-group (pg smoke, integration)
+        # Fail if Docker is unreachable instead of letting the suite skip itself
+        # into a green step that asserted nothing.
         env:
-          # test-rg-pg: fail if Docker is unreachable instead of letting the
-          # suite skip itself into a green step that asserted nothing.
           RG_PG_REQUIRE_DOCKER: "1"
-          # test-settings-service-pg: same as test-rg-pg above, for its
-          # Postgres migration suite.
+        run: make test-rg-pg
+
+      - name: Test settings-service (pg migrations, integration)
+        # Same shape as resource-group above: Docker is on this runner, so a
+        # skip here would be a broken daemon passing green.
+        env:
           SETTINGS_SERVICE_PG_REQUIRE_DOCKER: "1"
-          # test-pgq: compiles and runs everything behind the `pgq` feature
-          # (the secure graph builder, its unit suites and the trybuild
-          # guards) and the PostgreSQL 19 integration suite. Locally that
-          # suite skips itself while the pre-GA PG19 image is unavailable;
-          # here the skip is a failure, so it cannot pass green and empty
-          # (see libs/test-containers::graph_lane_required).
+        run: make test-settings-service-pg
+
+      # bss-pricing's Postgres tests are `#[ignore]`d behind Docker and ran in
+      # no job until 2026-08-11 — every concurrency and trigger proof the crate
+      # owns lives in them. This job already has Docker. The target passes
+      # `--no-fail-fast`; see the Makefile for what the default cost on 2026-08-18.
+      - name: Test bss-pricing with Postgres (integration)
+        run: make test-pricing-pg
+
+      # coord's `m0001_…` writes two independent SQL literals and only the
+      # SQLite one is reachable from the in-crate tests — so the `IF NOT EXISTS`
+      # that stops the `bss-pricing`-beside-`bss-ledger` boot crash, and the
+      # `in_schema("bss")` form both gears actually pass, ran in no job.
+      - name: Test coord with Postgres (integration)
+        run: make test-coord-pg
+
+      # bss-products' Postgres tier, added 2026-08-30. It carries the gear's
+      # only proofs about racing writers and the only execution of the Postgres
+      # half of its triggers — the SQLite suite is written from the same design
+      # clauses but against a different trigger shape, so it cannot fail for
+      # what the Postgres arm gets wrong. Without this step the tier compiles
+      # here and runs nowhere, which is the state the pricing comment above
+      # records as having cost that gear nine hidden failures.
+      - name: Test bss-products with Postgres (integration)
+        run: make test-products-pg
+
+      - name: Test redis-cluster-plugin (redis integration)
+        run: make test-cluster-redis
+
+      - name: Test toolkit-db (sqlite integration)
+        run: make test-sqlite
+
+      - name: Test toolkit-db (pg integration)
+        run: make test-pg
+
+      - name: Test toolkit-db (pgq unit + PG19 integration)
+        # Compiles and runs everything behind the `pgq` feature — the secure
+        # graph builder, its unit suites and the trybuild guards — and the
+        # PostgreSQL 19 integration suite. Locally that suite skips itself while
+        # the pre-GA PG19 image is unavailable; here the skip is a failure, so
+        # the isolation suite cannot pass green and empty (see
+        # libs/test-containers::graph_lane_required).
+        env:
           GEARS_TEST_PG_GRAPH_REQUIRED: "1"
-        run: make test-integration-${{ matrix.group }}
+        run: make test-pgq
+
+      - name: Test toolkit-db (mysql integration)
+        run: make test-mysql
+
+      - name: Test types-registry (db integration)
+        run: make test-types-registry-db
 
       # Peak disk use, to decide whether the free-disk-space step above is
       # still needed. The build dir only grows and the pulled images stay, so
