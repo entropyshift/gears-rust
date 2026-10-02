@@ -139,20 +139,26 @@ class TestTimings(unittest.TestCase):
 
 
 class TestStepSeconds(unittest.TestCase):
+    # In each wave the first suite that really runs also builds the shared
+    # base (~5 min), so its time is left out; other-wave steps take ~1 s.
     JOBS = [
         {
             "name": "Integration tests (wave 1/2)",
             "steps": [
-                {"name": "Test A", "started_at": "2026-10-03T10:00:00Z", "completed_at": "2026-10-03T10:05:00Z"},
-                {"name": "Test B", "started_at": "2026-10-03T10:05:00Z", "completed_at": "2026-10-03T10:05:01Z"},
                 {"name": "Checkout", "started_at": "2026-10-03T09:59:00Z", "completed_at": "2026-10-03T10:00:00Z"},
+                {"name": "Test G", "started_at": "2026-10-03T09:59:59Z", "completed_at": "2026-10-03T10:00:00Z"},
+                {"name": "Test F", "started_at": "2026-10-03T10:00:00Z", "completed_at": "2026-10-03T10:10:00Z"},
+                {"name": "Test A", "started_at": "2026-10-03T10:10:00Z", "completed_at": "2026-10-03T10:15:00Z"},
+                {"name": "Test B", "started_at": "2026-10-03T10:15:00Z", "completed_at": "2026-10-03T10:15:01Z"},
             ],
         },
         {
             "name": "Integration tests (wave 2/2)",
             "steps": [
-                {"name": "Test A", "started_at": "2026-10-03T10:00:00Z", "completed_at": "2026-10-03T10:00:01Z"},
-                {"name": "Test B", "started_at": "2026-10-03T10:00:01Z", "completed_at": "2026-10-03T10:02:01Z"},
+                {"name": "Test G", "started_at": "2026-10-03T10:00:00Z", "completed_at": "2026-10-03T10:08:20Z"},
+                {"name": "Test F", "started_at": "2026-10-03T10:08:20Z", "completed_at": "2026-10-03T10:08:21Z"},
+                {"name": "Test A", "started_at": "2026-10-03T10:08:21Z", "completed_at": "2026-10-03T10:08:22Z"},
+                {"name": "Test B", "started_at": "2026-10-03T10:08:22Z", "completed_at": "2026-10-03T10:10:22Z"},
                 {"name": "Test C", "started_at": None, "completed_at": None},
             ],
         },
@@ -160,10 +166,16 @@ class TestStepSeconds(unittest.TestCase):
             {"name": "Test A", "started_at": "2026-10-03T10:00:00Z", "completed_at": "2026-10-03T11:00:00Z"},
         ]},
     ]
-    NAMES = {"Test A": "test-a", "Test B": "test-b", "Test C": "test-c"}
+    NAMES = {"Test A": "test-a", "Test B": "test-b", "Test C": "test-c", "Test F": "test-f", "Test G": "test-g"}
 
     def test_takes_the_wave_that_ran_it(self):
-        self.assertEqual(iw.step_seconds(self.JOBS, self.NAMES), {"test-a": 300.0, "test-b": 120.0})
+        seconds = iw.step_seconds(self.JOBS, self.NAMES)
+        self.assertEqual((seconds["test-a"], seconds["test-b"]), (300.0, 120.0))
+
+    def test_skips_first_suite_that_ran_in_each_wave(self):
+        seconds = iw.step_seconds(self.JOBS, self.NAMES)
+        self.assertNotIn("test-f", seconds)
+        self.assertNotIn("test-g", seconds)
 
     def test_write_keeps_old_values_for_missing_suites(self):
         with tempfile.TemporaryDirectory() as d:

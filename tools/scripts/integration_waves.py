@@ -175,18 +175,34 @@ def _when(stamp: str) -> datetime:
     return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
 
+# A step of another wave passes in about a second; a suite that really runs
+# takes far longer than this.
+RAN_SECONDS = 10.0
+
+
 def step_seconds(jobs: list[dict], names: dict[str, str]) -> dict[str, float]:
-    """Longest step time per suite over the wave jobs: another wave only skips it."""
+    """Step time per suite, from the wave that ran it (other waves skip it in ~1 s).
+
+    The first suite that really runs in each wave also builds the shared base
+    (about 5 min in run 36699651834). Every wave pays that once, whatever its
+    suites, so it is left out: that suite keeps its old time.
+    """
     out: dict[str, float] = {}
     for job in jobs:
         if not job.get("name", "").startswith("Integration tests"):
             continue
+        first_seen = False
         for step in job.get("steps") or []:
             target = names.get(step.get("name", ""))
             start, end = step.get("started_at"), step.get("completed_at")
             if not target or not start or not end:
                 continue
             seconds = (_when(end) - _when(start)).total_seconds()
+            if seconds < RAN_SECONDS:
+                continue  # skipped: the suite runs in another wave
+            if not first_seen:
+                first_seen = True
+                continue
             out[target] = max(out.get(target, 0.0), seconds)
     return out
 

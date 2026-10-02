@@ -2,7 +2,9 @@
 # tools/scripts/integration_waves.py to balance the waves.
 # Refresh: python3 tools/scripts/integration_waves.py timings <run-id>
 # A suite missing here counts as the median. Stale values only make the waves
-# less even; they never fail a build.
+# less even; they never fail a build. Seeded from run 36699651834; pricing-pg
+# and types-registry-db from run 36234405629, since in the later run each
+# was its wave's first suite and also paid the shared base build.
 test-cluster-k8s = 101
 test-cluster-pg = 137
 test-coord-pg = 48
@@ -10,10 +12,10 @@ test-macros = 446
 test-mysql = 90
 test-pg = 74
 test-pgq = 46
-test-pricing-pg = 515
+test-pricing-pg = 413
 test-rg-pg = 67
 test-cluster-redis = 50
 test-sqlite = 410
-test-types-registry-db = 365
+test-types-registry-db = 106
 test-usage-collector-pg = 147
 test-users-info-pg = 41
