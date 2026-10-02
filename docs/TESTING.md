@@ -165,10 +165,11 @@ PR (Ubuntu only): SQLite, Postgres, PGQ (PostgreSQL 19, with `GEARS_TEST_PG_GRAP
 an unavailable image fails the job rather than skipping it), MySQL, Redis, k3s, the gear-level
 Postgres suites and the macro UI tests.
 
-The suites are listed in the Makefile as `INTEGRATION_SUITES_1` and `INTEGRATION_SUITES_2`,
-two lists of roughly equal run time that CI runs on two runners (`make test-integration-1`,
-`make test-integration-2`; `make test-integration` runs both). **To add a suite to CI, write
-its make target and add its name to one of the two lists.**
+**To add a suite to CI, write its make target and add a step to the `integration` job in
+`ci.yml`** (`name`, optional `env`, `run: make test-foo`), as before. CI runs the job on two
+runners and places each `make test-*` step in one of them automatically
+(`tools/scripts/integration_waves.py`, balanced by the times in
+`.config/ci-suite-timings.toml`; a new suite counts as the median until measured).
 
 ### 4.4 Database container images
 
@@ -465,7 +466,7 @@ PR opened / updated
   │     │                   two shards per OS, see 7.4)
   │     ├── trybuild      — compile-fail / trybuild suites (Ubuntu, macOS, Windows)
   │     ├── clippy        — lints (Ubuntu)
-  │     ├── integration   — DB / service integration suites (Ubuntu; two lists, see 4.3)
+  │     ├── integration   — DB / service integration suites (Ubuntu; two waves, see 4.3)
   │     ├── test-fips     — FIPS verification / platform-specific FIPS test lanes
   │     ├── security      — cargo-deny
   │     ├── coverage      — cargo-llvm-cov (two shards) → one Codecov upload
@@ -501,10 +502,11 @@ exactly once per OS, as in a plain `cargo nextest run --workspace`.
   workspace by crate into two shards per OS (`tools/scripts/test_shard.py`, balanced by
   source size); new crates are placed automatically, and every crate keeps the features it
   gets in a full workspace build.
-- **A trybuild / compile-fail case:** nothing to do. The suites run in the `trybuild` job on
-  every OS (nextest profiles `no-trybuild` / `trybuild-only` in `.config/nextest.toml`); a
-  suite in a new test binary simply runs in the `test` shards instead.
-- **A new integration suite:** add its make target to `INTEGRATION_SUITES_1` or `_2` (4.3).
+- **A trybuild / compile-fail case:** nothing to do. CI finds every test that uses
+  `trybuild::TestCases` (`tools/scripts/trybuild_suites.py`) and runs them in the `trybuild`
+  job on every OS; the `test` shards skip them. A test the scan misses runs in the shards.
+- **A new integration suite:** add a step to the `integration` job, as before (4.3). It is
+  placed in a wave automatically.
 - **Coverage** uses the same crate shards and merges them into one Codecov report.
 
 To reproduce one shard locally: `make test-no-macros TEST_SHARD=1/2`.
@@ -581,8 +583,8 @@ Before opening a PR, verify:
 
 - [ ] `make check` passes (fmt + clippy + unit tests + security)
 - [ ] New code has unit tests
-- [ ] Integration tests added/updated if DB logic changed (a new suite goes into one of the
-      `INTEGRATION_SUITES_*` lists in the Makefile, see 4.3)
+- [ ] Integration tests added/updated if DB logic changed (a new suite gets a step in the
+      `integration` job of `ci.yml`, see 4.3)
 - [ ] E2E tests added/updated if REST endpoints changed
 - [ ] `make coverage-unit` shows no regression below the 80 % threshold
 - [ ] Fuzz targets updated if parser/validator logic changed
