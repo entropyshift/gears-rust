@@ -647,6 +647,17 @@ jobs:
           GEARS_TEST_PG_GRAPH_REQUIRED: "1"
         run: make test-integration-${{ matrix.group }}
 
+      # Peak disk use, to decide whether the free-disk-space step above is
+      # still needed. The build dir only grows and the pulled images stay, so
+      # the end of the job is close to the peak.
+      - name: Disk usage after integration suites
+        if: always()
+        shell: bash
+        run: |
+          df -h .
+          du -sh target 2>/dev/null || true
+          docker system df || true
+
   test-fips:
     name: FIPS verification (${{ matrix.os }})
     needs: changes
