@@ -136,5 +136,41 @@ class TestTimings(unittest.TestCase):
             self.assertEqual(iw.load_timings(p), {"test-a": 515.0, "test-b": 41.5})
 
 
+class TestStepSeconds(unittest.TestCase):
+    JOBS = [
+        {
+            "name": "Integration tests (wave 1/2)",
+            "steps": [
+                {"name": "Test A", "started_at": "2026-10-03T10:00:00Z", "completed_at": "2026-10-03T10:05:00Z"},
+                {"name": "Test B", "started_at": "2026-10-03T10:05:00Z", "completed_at": "2026-10-03T10:05:01Z"},
+                {"name": "Checkout", "started_at": "2026-10-03T09:59:00Z", "completed_at": "2026-10-03T10:00:00Z"},
+            ],
+        },
+        {
+            "name": "Integration tests (wave 2/2)",
+            "steps": [
+                {"name": "Test A", "started_at": "2026-10-03T10:00:00Z", "completed_at": "2026-10-03T10:00:01Z"},
+                {"name": "Test B", "started_at": "2026-10-03T10:00:01Z", "completed_at": "2026-10-03T10:02:01Z"},
+                {"name": "Test C", "started_at": None, "completed_at": None},
+            ],
+        },
+        {"name": "Test Suite (ubuntu-latest, 1/2)", "steps": [
+            {"name": "Test A", "started_at": "2026-10-03T10:00:00Z", "completed_at": "2026-10-03T11:00:00Z"},
+        ]},
+    ]
+    NAMES = {"Test A": "test-a", "Test B": "test-b", "Test C": "test-c"}
+
+    def test_takes_the_wave_that_ran_it(self):
+        self.assertEqual(iw.step_seconds(self.JOBS, self.NAMES), {"test-a": 300.0, "test-b": 120.0})
+
+    def test_write_keeps_old_values_for_missing_suites(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "t.toml"
+            p.write_text("test-a = 1\ntest-z = 9\n", encoding="utf-8")
+            iw.write_timings({"test-a": 300.4, "test-b": 120.0}, "123", p)
+            self.assertEqual(iw.load_timings(p), {"test-a": 300.0, "test-b": 120.0, "test-z": 9.0})
+            self.assertIn("run 123", p.read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()

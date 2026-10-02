@@ -31,11 +31,14 @@ Exit codes:
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import statistics
+import subprocess
 import sys
 import tomllib
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -159,10 +162,71 @@ def main(argv: list[str]) -> int:
     return 0
 
 
+TIMINGS_HEADER = """\
+# Seconds per suite of the CI `integration` job, used by
+# tools/scripts/integration_waves.py to balance the waves.
+# Refresh: python3 tools/scripts/integration_waves.py timings <run-id>
+# A suite missing here counts as the median. Stale values only make the waves
+# less even; they never fail a build. Last refreshed from run {run_id}.
+"""
+
+
+def _when(stamp: str) -> datetime:
+    return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+
+
+def step_seconds(jobs: list[dict], names: dict[str, str]) -> dict[str, float]:
+    """Longest step time per suite over the wave jobs: another wave only skips it."""
+    out: dict[str, float] = {}
+    for job in jobs:
+        if not job.get("name", "").startswith("Integration tests"):
+            continue
+        for step in job.get("steps") or []:
+            target = names.get(step.get("name", ""))
+            start, end = step.get("started_at"), step.get("completed_at")
+            if not target or not start or not end:
+                continue
+            seconds = (_when(end) - _when(start)).total_seconds()
+            out[target] = max(out.get(target, 0.0), seconds)
+    return out
+
+
+def write_timings(seconds: dict[str, float], run_id: str, path: Path = TIMINGS) -> None:
+    merged = load_timings(path)
+    merged.update({k: float(round(v)) for k, v in seconds.items()})
+    body = "".join(f"{k} = {merged[k]:.0f}\n" for k in sorted(merged))
+    path.write_text(TIMINGS_HEADER.format(run_id=run_id) + body, encoding="utf-8")
+
+
 def timings_main(rest: list[str], steps: list[tuple[str, str]]) -> int:
-    # Added in Task 2.
-    print("timings: not implemented yet", file=sys.stderr)
-    return 1
+    repo = "constructorfabric/gears-rust"
+    args = list(rest)
+    if "--repo" in args:
+        i = args.index("--repo")
+        repo = args[i + 1]
+        del args[i : i + 2]
+    if len(args) != 1 or not args[0].isdigit():
+        print("usage: integration_waves.py timings RUN_ID [--repo OWNER/NAME]", file=sys.stderr)
+        return 1
+    run_id = args[0]
+    try:
+        out = subprocess.run(
+            ["gh", "api", "--paginate", f"repos/{repo}/actions/runs/{run_id}/jobs?per_page=100",
+             "--jq", ".jobs[]"],
+            check=True, capture_output=True, text=True, encoding="utf-8",
+        ).stdout
+    except (OSError, subprocess.CalledProcessError) as e:
+        print(f"gh api failed: {getattr(e, 'stderr', e)}", file=sys.stderr)
+        return 1
+    jobs = [json.loads(line) for line in out.splitlines() if line.strip()]
+    seconds = step_seconds(jobs, {n: t for n, t in steps})
+    if not seconds:
+        print(f"run {run_id}: no integration suite steps found", file=sys.stderr)
+        return 1
+    write_timings(seconds, run_id)
+    for k in sorted(seconds):
+        print(f"{k} = {seconds[k]:.0f}")
+    return 0
 
 
 if __name__ == "__main__":
