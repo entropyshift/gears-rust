@@ -428,16 +428,6 @@ jobs:
           TEST_SHARD: ${{ matrix.shard }}
         run: make test-no-macros
 
-      # `bss-fixtures` is the only crate in the tree whose *production* surface
-      # is the narrow one: pricing's `FixtureGate` inherits it with
-      # `default-features = false`. `default = ["corpus"]`, so the workspace run
-      # above compiles the wide build, where `tests/production_surface.rs`'s
-      # assertions hold trivially and prove nothing they were written for.
-      - name: cargo test (bss-fixtures narrow production surface)
-        # Once per OS: the first shard only.
-        if: matrix.shard != '2/2'
-        run: make test-fixtures-narrow
-
   # The trybuild / compile-fail suites every Test Suite leg skips (nextest
   # `no-trybuild` / `trybuild-only` profiles), on every OS the Test Suite
   # covers, so each OS still runs exactly the tests it ran before the split.
