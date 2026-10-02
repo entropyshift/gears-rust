@@ -711,6 +711,12 @@ NO_MACROS_EXCLUDE := cf-gears-toolkit-macros-tests cf-gears-toolkit-db-macros
 # leg across runners; the shards together cover the whole set exactly once.
 TEST_SHARD ?=
 
+# `skip` leaves out the trybuild / compile-fail tests that
+# tools/scripts/trybuild_suites.py finds; CI's test legs set it, and the
+# Trybuild job (`make test-trybuild`) runs exactly those tests. Empty (the
+# default) runs everything.
+TRYBUILD_SPLIT ?=
+
 test-no-macros: install-tools
 	$(call print_target_banner)
 	@if [ -n "$(TEST_SHARD)" ]; then \
@@ -719,29 +725,32 @@ test-no-macros: install-tools
 	else \
 		scope="--workspace $(addprefix --exclude ,$(NO_MACROS_EXCLUDE))"; \
 	fi; \
-	echo "cargo nextest run $$scope"; \
-	cargo nextest run $$scope
+	if [ "$(TRYBUILD_SPLIT)" = skip ]; then \
+		filter="$$(python3 tools/scripts/trybuild_suites.py filter $(addprefix --exclude ,$(NO_MACROS_EXCLUDE)))" || exit 1; \
+		echo "cargo nextest run $$scope -E 'not ($$filter)'"; \
+		cargo nextest run $$scope -E "not ($$filter)"; \
+	else \
+		echo "cargo nextest run $$scope"; \
+		cargo nextest run $$scope; \
+	fi
 
 test-macros: install-tools
 	$(call print_target_banner)
 	cargo nextest run -p cf-gears-toolkit-db-macros
 	cargo nextest run -p cf-gears-toolkit-macros-tests
 
-# Test binaries that hold the trybuild / compile-fail suites selected by the
-# nextest `trybuild-only` profile. Only these get built for `test-trybuild`.
-TRYBUILD_TEST_TARGETS := ui compile_tests typed_builder_compilefail domain_model_tests producer sdk prefix_customization
-
-## Run the trybuild / compile-fail suites that `test-no-macros` leaves out
-## under the nextest `no-trybuild` profile (CI's Trybuild job). The same
+## Run the trybuild / compile-fail tests that CI's test legs leave out
+## (TRYBUILD_SPLIT=skip), found by tools/scripts/trybuild_suites.py. The same
 ## `--workspace` / `--exclude` selection as `test-no-macros` gives the same
 ## feature unification, so the fixtures compile against the same feature set
 ## and reuse the same sccache objects; the `--test` list limits the build to
-## the binaries that hold these suites.
+## the binaries that hold these tests.
 test-trybuild: install-tools
 	$(call print_target_banner)
-	python3 tools/scripts/check_trybuild_profiles.py $(TRYBUILD_TEST_TARGETS)
-	cargo nextest run --workspace $(addprefix --exclude ,$(NO_MACROS_EXCLUDE)) \
-		$(addprefix --test ,$(TRYBUILD_TEST_TARGETS)) --profile trybuild-only
+	@filter="$$(python3 tools/scripts/trybuild_suites.py filter $(addprefix --exclude ,$(NO_MACROS_EXCLUDE)))" || exit 1; \
+	tests="$$(python3 tools/scripts/trybuild_suites.py targets $(addprefix --exclude ,$(NO_MACROS_EXCLUDE)))" || exit 1; \
+	echo "cargo nextest run --workspace $(addprefix --exclude ,$(NO_MACROS_EXCLUDE)) $$tests -E '$$filter'"; \
+	cargo nextest run --workspace $(addprefix --exclude ,$(NO_MACROS_EXCLUDE)) $$tests -E "$$filter"
 
 ## Run SQLite integration tests
 test-sqlite: install-tools

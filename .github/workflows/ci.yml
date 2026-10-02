@@ -113,12 +113,11 @@ jobs:
               - 'testing/e2e/lib/sidecars.py'
               # Architecture-lint configuration (cargo gears lint reads it).
               - 'Gears.toml'
-              # Selects which tests each matrix leg runs (NEXTEST_PROFILE, below):
-              # a profile edit changes the executed set on every OS.
+              # Per-test nextest settings (timeouts) for every leg.
               - '.config/nextest.toml'
-              # Guards that the Test Suite legs and the Trybuild job split the
-              # tests cleanly (run by `make test-trybuild`).
-              - 'tools/scripts/check_trybuild_profiles.py'
+              # Splits the trybuild tests between the Test Suite legs and the
+              # Trybuild job.
+              - 'tools/scripts/trybuild_suites.py'
               # Picks the packages of each sharded Test Suite leg.
               - 'tools/scripts/test_shard.py'
               # Places the integration job's suites in waves.
@@ -336,10 +335,11 @@ jobs:
       # (debuginfo=0 already drops file:line). Spelled with `-` so MSYS path
       # conversion in bash steps cannot rewrite a leading `/`.
       RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C debuginfo=0 -C linker=lld-link -C link-arg=-Brepro -C link-arg=-DEBUG:NONE' || '-C debuginfo=0' }}
-      # Every leg skips the trybuild/compile-fail suites (long serial rustc
+      # Every leg skips the trybuild/compile-fail tests (long serial rustc
       # sessions); the `trybuild` job below runs them on the same three OSes,
-      # in parallel with these legs. See .config/nextest.toml.
-      NEXTEST_PROFILE: no-trybuild
+      # in parallel with these legs. tools/scripts/trybuild_suites.py finds
+      # them; contributors do nothing.
+      TRYBUILD_SPLIT: skip
     steps:
       - name: Force LF in working tree (w/a for Windows)
         if: runner.os == 'Windows'
@@ -435,8 +435,8 @@ jobs:
           TEST_SHARD: ${{ matrix.shard }}
         run: make test-no-macros
 
-  # The trybuild / compile-fail suites every Test Suite leg skips (nextest
-  # `no-trybuild` / `trybuild-only` profiles), on every OS the Test Suite
+  # The trybuild / compile-fail tests every Test Suite leg skips (found by
+  # tools/scripts/trybuild_suites.py), on every OS the Test Suite
   # covers, so each OS still runs exactly the tests it ran before the split.
   # They used to run at the end of the test legs: ~1,090 s of serial rustc
   # work on Ubuntu that the leg waited on. Here they run alongside the legs
@@ -523,7 +523,7 @@ jobs:
         uses: ./.github/actions/sccache-probe
         with: *cache-storage
 
-      # Checks first that the two nextest profiles are still exact complements.
+      # Runs exactly the tests the Test Suite legs leave out (same scan).
       - name: cargo test (trybuild / compile-fail suites)
         run: make test-trybuild
 

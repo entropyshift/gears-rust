@@ -1,71 +1,8 @@
 # Workspace nextest configuration.
 #
-# Profile selection in CI comes from the NEXTEST_PROFILE env var set per
-# matrix leg in .github/workflows/ci.yml.
-
-# `no-trybuild` — used by every Test Suite leg (Ubuntu, Windows, macOS).
-# `trybuild-only` — its exact complement, used by the separate Trybuild job
-# (`make test-trybuild`), which runs on the same three OSes.
-#
-# Together the two cover every test on every OS, as a plain run would. The
-# split only moves the compile-fail / trybuild-style suites, long serial
-# rustc sessions, out of the test legs: on Ubuntu they were ~1,090 s of test
-# time, the slowest alone 326 s, and the last to finish set the end of that
-# leg's 989 s test phase (run 36070999177). In their own job they run
-# alongside the legs instead.
-#
-# Every matcher below is exact (`binary(=...)`) or end-anchored (`test(/...$/)`).
-# The substring forms this file first shipped with swept in unrelated tests:
-#   - `binary(ui)` also matched bss-ledger's `postgres_inquiry` and
-#     `postgres_recognition_build` (7 tests). All are #[ignore]d behind Docker
-#     today, so no signal was actually lost — but nothing held that in place.
-#   - `test(/compile_fail/)` also matched four genuine runtime tests whose
-#     names merely contain "compile_failed":
-#       chat-engine     compile_failed_list_messages_returns_forbidden
-#       chat-engine     compile_failed_list_sessions_returns_forbidden
-#       account-mgmt    compile_failed_maps_to_cross_tenant_denied_403
-#       resource-group  enforcer_compile_failed_maps_to_access_denied
-#   - `binary(prefix_customization)` also dropped toolkit-gts's three cheap
-#     in-process Layer-1 tests; only the four Layer-2 ones below spawn a
-#     sub-`cargo test` and are worth excluding.
-#
-# Excluded targets, and why each is scoped the way it is:
-#   binary(=ui)                         trybuild UI harnesses — toolkit-db,
-#                                       toolkit-security, toolkit-canonical-errors,
-#                                       toolkit-odata-macros. One test each,
-#                                       all trybuild, so binary scope is exact.
-#   binary(=compile_tests)              toolkit-odata-macros trybuild suite (1 test)
-#   binary(=typed_builder_compilefail)  toolkit trybuild suite (1 test)
-#   domain_model_compile_fail_tests     toolkit. Name-scoped, not binary-scoped:
-#                                       binary `domain_model_tests` holds 9 other
-#                                       real tests.
-#   typestate_builder_compile_failures_are_checked
-#                                       event-broker-sdk. Name-scoped: binary
-#                                       `producer` holds 33 tests. The `$` anchor
-#                                       (no `^`) is deliberate — nextest names it
-#                                       `builder::typestate_builder_...`.
-#   sequence_arithmetic_does_not_compile
-#                                       event-broker-sdk. Name-scoped: binary
-#                                       `sdk` holds the crate's other SDK tests.
-#   default_prefix_is_gts_dot           toolkit-gts Layer-2 — each spawns a
-#   custom_prefix_acme_dot              sub-`cargo test` rebuild under a different
-#   custom_prefix_myco_dot              GTS_ID_PREFIX. The three Layer-1 tests in
-#   invalid_prefix_fails_to_compile     the same binary stay in.
-#
-# Kept on one line on purpose: it parses identically to the form this file
-# shipped with. If you reformat it, run `cargo nextest list -P no-trybuild`.
-#
-# The two filters must stay exact complements, or a suite runs twice or
-# nowhere. `make test-trybuild` checks that before running (script:
-# tools/scripts/check_trybuild_profiles.py), and also that every `binary(=…)`
-# name below is in the Makefile's TRYBUILD_TEST_TARGETS: that list limits the
-# job's build to the binaries holding these suites. A name-scoped entry
-# (`test(/…$/)`) needs its binary added there by hand.
-[profile.no-trybuild]
-default-filter = "not (binary(=ui) or binary(=compile_tests) or binary(=typed_builder_compilefail) or test(/domain_model_compile_fail_tests$/) or test(/typestate_builder_compile_failures_are_checked$/) or test(/sequence_arithmetic_does_not_compile$/) or test(/default_prefix_is_gts_dot$/) or test(/custom_prefix_acme_dot$/) or test(/custom_prefix_myco_dot$/) or test(/invalid_prefix_fails_to_compile$/))"
-
-[profile.trybuild-only]
-default-filter = "binary(=ui) or binary(=compile_tests) or binary(=typed_builder_compilefail) or test(/domain_model_compile_fail_tests$/) or test(/typestate_builder_compile_failures_are_checked$/) or test(/sequence_arithmetic_does_not_compile$/) or test(/default_prefix_is_gts_dot$/) or test(/custom_prefix_acme_dot$/) or test(/custom_prefix_myco_dot$/) or test(/invalid_prefix_fails_to_compile$/)"
+# The trybuild / compile-fail split between CI's test legs and its Trybuild
+# job is not configured here: tools/scripts/trybuild_suites.py finds those
+# tests and `make test-no-macros` / `make test-trybuild` pass the filter.
 
 # ClickHouse usage-collector plugin: per-test kill. Sized from measured runs
 # (max 1.5s per test) and kept above the harness's own 240s bring-up budget, so
