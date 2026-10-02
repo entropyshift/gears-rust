@@ -44,6 +44,9 @@
 #                                       `producer` holds 33 tests. The `$` anchor
 #                                       (no `^`) is deliberate — nextest names it
 #                                       `builder::typestate_builder_...`.
+#   sequence_arithmetic_does_not_compile
+#                                       event-broker-sdk. Name-scoped: binary
+#                                       `sdk` holds the crate's other SDK tests.
 #   default_prefix_is_gts_dot           toolkit-gts Layer-2 — each spawns a
 #   custom_prefix_acme_dot              sub-`cargo test` rebuild under a different
 #   custom_prefix_myco_dot              GTS_ID_PREFIX. The three Layer-1 tests in
@@ -59,7 +62,15 @@
 # job's build to the binaries holding these suites. A name-scoped entry
 # (`test(/…$/)`) needs its binary added there by hand.
 [profile.no-trybuild]
-default-filter = "not (binary(=ui) or binary(=compile_tests) or binary(=typed_builder_compilefail) or test(/domain_model_compile_fail_tests$/) or test(/typestate_builder_compile_failures_are_checked$/) or test(/default_prefix_is_gts_dot$/) or test(/custom_prefix_acme_dot$/) or test(/custom_prefix_myco_dot$/) or test(/invalid_prefix_fails_to_compile$/))"
+default-filter = "not (binary(=ui) or binary(=compile_tests) or binary(=typed_builder_compilefail) or test(/domain_model_compile_fail_tests$/) or test(/typestate_builder_compile_failures_are_checked$/) or test(/sequence_arithmetic_does_not_compile$/) or test(/default_prefix_is_gts_dot$/) or test(/custom_prefix_acme_dot$/) or test(/custom_prefix_myco_dot$/) or test(/invalid_prefix_fails_to_compile$/))"
 
 [profile.trybuild-only]
-default-filter = "binary(=ui) or binary(=compile_tests) or binary(=typed_builder_compilefail) or test(/domain_model_compile_fail_tests$/) or test(/typestate_builder_compile_failures_are_checked$/) or test(/default_prefix_is_gts_dot$/) or test(/custom_prefix_acme_dot$/) or test(/custom_prefix_myco_dot$/) or test(/invalid_prefix_fails_to_compile$/)"
+default-filter = "binary(=ui) or binary(=compile_tests) or binary(=typed_builder_compilefail) or test(/domain_model_compile_fail_tests$/) or test(/typestate_builder_compile_failures_are_checked$/) or test(/sequence_arithmetic_does_not_compile$/) or test(/default_prefix_is_gts_dot$/) or test(/custom_prefix_acme_dot$/) or test(/custom_prefix_myco_dot$/) or test(/invalid_prefix_fails_to_compile$/)"
+
+# ClickHouse usage-collector plugin: per-test kill. Sized from measured runs
+# (max 1.5s per test) and kept above the harness's own 240s bring-up budget, so
+# its error, not a bare TIMEOUT, reports a wedged setup. See the plugin's
+# tests/common/mod.rs (BRING_UP_BUDGET).
+[[profile.default.overrides]]
+filter = 'package(cf-gears-clickhouse-usage-collector-plugin)'
+slow-timeout = { period = "60s", terminate-after = 5 }
