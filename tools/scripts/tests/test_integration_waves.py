@@ -65,59 +65,52 @@ class TestSuiteSteps(unittest.TestCase):
 
 
 class TestPlan(unittest.TestCase):
-    def test_longest_first_into_lightest_wave(self):
-        suites = ["a", "b", "c", "d"]
-        timings = {"a": 10, "b": 400, "c": 300, "d": 100}
-        # b -> wave 1 (400), c -> wave 2 (300), d -> wave 2 (400), a -> wave 1 (410)
-        self.assertEqual(iw.plan(suites, timings, 2), [["a", "b"], ["c", "d"]])
+    def test_splits_steps_in_order(self):
+        self.assertEqual(iw.plan(["a", "b", "c", "d"], 2), [["a", "b"], ["c", "d"]])
+
+    def test_odd_count_gives_the_extra_suite_to_the_last_wave(self):
+        self.assertEqual(iw.plan(["a", "b", "c", "d", "e"], 2), [["a", "b"], ["c", "d", "e"]])
 
     def test_every_suite_in_exactly_one_wave(self):
         suites = [f"s{i}" for i in range(17)]
-        timings = {s: (i * 37) % 101 for i, s in enumerate(suites)}
-        waves = iw.plan(suites, timings, 3)
-        flat = [s for w in waves for s in w]
-        self.assertEqual(sorted(flat), sorted(suites))
+        waves = iw.plan(suites, 3)
+        self.assertEqual([s for w in waves for s in w], suites)
+        self.assertEqual([len(w) for w in waves], [5, 6, 6])
 
-    def test_new_suite_gets_median(self):
-        suites = ["a", "b", "c", "new"]
-        timings = {"a": 100, "b": 50, "c": 10}
-        # median 50: a -> 1, new/b tie at 50 break by name: b -> 2, new -> 2, c -> 1
-        self.assertEqual(iw.plan(suites, timings, 2), [["a", "c"], ["b", "new"]])
+    def test_fewer_suites_than_waves(self):
+        self.assertEqual(iw.plan(["x"], 2), [[], ["x"]])
 
-    def test_no_timings_at_all(self):
-        self.assertEqual(iw.plan(["x", "y"], {}, 2), [["x"], ["y"]])
-
-    def test_same_input_same_plan(self):
-        suites = ["a", "b", "c"]
-        timings = {"a": 5, "b": 5, "c": 5}
-        self.assertEqual(iw.plan(suites, timings, 2), iw.plan(list(suites), dict(timings), 2))
+    def test_new_step_at_the_end_moves_at_most_one_suite(self):
+        before = iw.plan(["a", "b", "c", "d"], 2)
+        after = iw.plan(["a", "b", "c", "d", "e"], 2)
+        moved = [s for w in range(2) for s in before[w] if s not in after[w]]
+        self.assertLessEqual(len(moved), 1)
 
 
 class TestDecide(unittest.TestCase):
-    SUITES = ["test-a", "test-b"]
-    TIMINGS = {"test-a": 100, "test-b": 50}  # test-a -> wave 1, test-b -> wave 2
+    SUITES = ["test-a", "test-b"]  # test-a -> wave 1, test-b -> wave 2
 
     def test_decide_runs_own_wave(self):
-        self.assertEqual(iw.decide(["test-a"], "1/2", self.SUITES, self.TIMINGS), "run")
+        self.assertEqual(iw.decide(["test-a"], "1/2", self.SUITES), "run")
 
     def test_decide_skips_other_wave(self):
         self.assertEqual(
-            iw.decide(["test-b"], "1/2", self.SUITES, self.TIMINGS),
+            iw.decide(["test-b"], "1/2", self.SUITES),
             "skip: test-b runs in wave 2/2",
         )
 
     def test_decide_runs_unknown_goal(self):
-        self.assertEqual(iw.decide(["install-tools"], "1/2", self.SUITES, self.TIMINGS), "run")
+        self.assertEqual(iw.decide(["install-tools"], "1/2", self.SUITES), "run")
 
     def test_decide_runs_with_flags(self):
-        self.assertEqual(iw.decide(["-n", "test-b"], "1/2", self.SUITES, self.TIMINGS), "run")
+        self.assertEqual(iw.decide(["-n", "test-b"], "1/2", self.SUITES), "run")
 
     def test_decide_runs_with_several_goals(self):
-        self.assertEqual(iw.decide(["test-a", "test-b"], "1/2", self.SUITES, self.TIMINGS), "run")
+        self.assertEqual(iw.decide(["test-a", "test-b"], "1/2", self.SUITES), "run")
 
     def test_decide_ignores_variable_assignments(self):
         self.assertEqual(
-            iw.decide(["test-b", "X=1"], "1/2", self.SUITES, self.TIMINGS),
+            iw.decide(["test-b", "X=1"], "1/2", self.SUITES),
             "skip: test-b runs in wave 2/2",
         )
 
@@ -127,63 +120,16 @@ class TestDecide(unittest.TestCase):
                 iw.parse_wave(spec)
 
 
-class TestTimings(unittest.TestCase):
-    def test_load_missing_file_is_empty(self):
-        self.assertEqual(iw.load_timings(Path("/nonexistent/timings.toml")), {})
-
-    def test_load_reads_seconds(self):
-        with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "t.toml"
-            p.write_text("# comment\ntest-a = 515\ntest-b = 41.5\n", encoding="utf-8")
-            self.assertEqual(iw.load_timings(p), {"test-a": 515.0, "test-b": 41.5})
-
-
-class TestStepSeconds(unittest.TestCase):
-    # In each wave the first suite that really runs also builds the shared
-    # base (~5 min), so its time is left out; other-wave steps take ~1 s.
-    JOBS = [
-        {
-            "name": "Integration tests (wave 1/2)",
-            "steps": [
-                {"name": "Checkout", "started_at": "2026-10-03T09:59:00Z", "completed_at": "2026-10-03T10:00:00Z"},
-                {"name": "Test G", "started_at": "2026-10-03T09:59:59Z", "completed_at": "2026-10-03T10:00:00Z"},
-                {"name": "Test F", "started_at": "2026-10-03T10:00:00Z", "completed_at": "2026-10-03T10:10:00Z"},
-                {"name": "Test A", "started_at": "2026-10-03T10:10:00Z", "completed_at": "2026-10-03T10:15:00Z"},
-                {"name": "Test B", "started_at": "2026-10-03T10:15:00Z", "completed_at": "2026-10-03T10:15:01Z"},
-            ],
-        },
-        {
-            "name": "Integration tests (wave 2/2)",
-            "steps": [
-                {"name": "Test G", "started_at": "2026-10-03T10:00:00Z", "completed_at": "2026-10-03T10:08:20Z"},
-                {"name": "Test F", "started_at": "2026-10-03T10:08:20Z", "completed_at": "2026-10-03T10:08:21Z"},
-                {"name": "Test A", "started_at": "2026-10-03T10:08:21Z", "completed_at": "2026-10-03T10:08:22Z"},
-                {"name": "Test B", "started_at": "2026-10-03T10:08:22Z", "completed_at": "2026-10-03T10:10:22Z"},
-                {"name": "Test C", "started_at": None, "completed_at": None},
-            ],
-        },
-        {"name": "Test Suite (ubuntu-latest, 1/2)", "steps": [
-            {"name": "Test A", "started_at": "2026-10-03T10:00:00Z", "completed_at": "2026-10-03T11:00:00Z"},
-        ]},
-    ]
-    NAMES = {"Test A": "test-a", "Test B": "test-b", "Test C": "test-c", "Test F": "test-f", "Test G": "test-g"}
-
-    def test_takes_the_wave_that_ran_it(self):
-        seconds = iw.step_seconds(self.JOBS, self.NAMES)
-        self.assertEqual((seconds["test-a"], seconds["test-b"]), (300.0, 120.0))
-
-    def test_skips_first_suite_that_ran_in_each_wave(self):
-        seconds = iw.step_seconds(self.JOBS, self.NAMES)
-        self.assertNotIn("test-f", seconds)
-        self.assertNotIn("test-g", seconds)
-
-    def test_write_keeps_old_values_for_missing_suites(self):
-        with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "t.toml"
-            p.write_text("test-a = 1\ntest-z = 9\n", encoding="utf-8")
-            iw.write_timings({"test-a": 300.4, "test-b": 120.0}, "123", p)
-            self.assertEqual(iw.load_timings(p), {"test-a": 300.0, "test-b": 120.0, "test-z": 9.0})
-            self.assertIn("run 123", p.read_text(encoding="utf-8"))
+class TestPlanMarkdown(unittest.TestCase):
+    def test_lists_each_suite_with_its_wave(self):
+        steps = [("Step A", "test-a"), ("Step B", "test-b")]
+        self.assertEqual(
+            iw.plan_markdown(steps, 2),
+            "### Integration waves\n\n"
+            "| Wave | Suite | Step |\n|---|---|---|\n"
+            "| 1/2 | `test-a` | Step A |\n"
+            "| 2/2 | `test-b` | Step B |\n",
+        )
 
 
 WRAPPER = HERE.parent.parent / "ci" / "wave-bin" / "make"
@@ -195,13 +141,11 @@ class TestWrapper(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             (d / "ci.yml").write_text(ci_yml, encoding="utf-8")
-            (d / "t.toml").write_text("test-macros = 100\ntest-users-info-pg = 50\n", encoding="utf-8")
             fake = d / "fake-make"
             fake.write_text('#!/usr/bin/env bash\necho "REAL $*"\n', encoding="utf-8")
             fake.chmod(0o755)
             env = dict(os.environ, REAL_MAKE=str(fake),
-                       INTEGRATION_WAVES_CI_YML=str(d / "ci.yml"),
-                       INTEGRATION_WAVES_TIMINGS=str(d / "t.toml"))
+                       INTEGRATION_WAVES_CI_YML=str(d / "ci.yml"))
             if wave is None:
                 env.pop("CI_WAVE", None)
             else:

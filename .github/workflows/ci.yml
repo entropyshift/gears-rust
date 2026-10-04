@@ -123,7 +123,6 @@ jobs:
               # Places the integration job's suites in waves.
               - 'tools/scripts/integration_waves.py'
               - 'tools/ci/wave-bin/**'
-              - '.config/ci-suite-timings.toml'
               # Read by `cargo gears lint --dylint`: DE0708 hasher allow-list and
               # DE1101 exclusions, both designed to be edited on their own.
               - 'dylint.toml'
@@ -626,9 +625,9 @@ jobs:
         run: df -h .
 
       # Every `make test-*` step below runs in one wave only, picked by
-      # tools/scripts/integration_waves.py from these steps and
-      # .config/ci-suite-timings.toml. To add a suite to CI, add a step here
-      # as usual; it is placed automatically.
+      # tools/scripts/integration_waves.py from the order of these steps: the
+      # first half runs in wave 1, the rest in wave 2. To add a suite to CI,
+      # add a step here as usual; it is placed automatically.
       - name: Pick this wave's suites
         shell: bash
         run: |

@@ -168,8 +168,8 @@ Postgres suites and the macro UI tests.
 **To add a suite to CI, write its make target and add a step to the `integration` job in
 `ci.yml`** (`name`, optional `env`, `run: make test-foo`), as before. CI runs the job on two
 runners and places each `make test-*` step in one of them automatically
-(`tools/scripts/integration_waves.py`, balanced by the times in
-`.config/ci-suite-timings.toml`; a new suite counts as the median until measured).
+(`tools/scripts/integration_waves.py`): the first half of the steps runs on one runner, the
+rest on the other. If one runner ends up much slower, moving a step up or down evens it out.
 
 ### 4.4 Database container images
 
