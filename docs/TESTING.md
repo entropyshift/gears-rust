@@ -475,6 +475,10 @@ Additional quality workflows
   ├── pr-governance.yml   — review-governance automation
   └── pr-reviewer-check.yml — reviewer assignment hygiene
 
+Cache upkeep
+  ├── cache-warm.yml       - saves the shared Cargo registry cache (push to main, weekly)
+  └── cache_cleanup.yml    - removes old caches (weekly)
+
 Nightly (schedule)
   ├── e2e.yml              — full E2E + specialized E2E lanes (auto-creates issue on failure)
   ├── clusterfuzzlite      — fuzz testing
@@ -482,6 +486,61 @@ Nightly (schedule)
   ├── pr-governance.yml    — governance / follow-up automation
   └── pr-reviewer-check.yml — reviewer assignment checks
 ```
+
+### 7.4 CI build cache storage
+
+CI stores compiled crates (sccache) and the `cargo-gears` binary in S3-compatible storage
+if it is set up, and in the GitHub Actions cache if not. The test jobs also keep `main`'s
+`target/debug` and trybuild's build there; those two caches need S3 storage and are
+skipped without it. Only `main` writes to the storage.
+
+Repository variables (Settings, Secrets and variables, Actions, Variables):
+
+| Variable | Value |
+|----------|-------|
+| `S3_BUCKET` | bucket name |
+| `S3_ENDPOINT` | empty for AWS S3, else the provider URL, e.g. `https://<account>.r2.cloudflarestorage.com` for Cloudflare R2 |
+| `S3_REGION` | AWS S3: the bucket region. R2: `auto`. Default: `us-east-1` |
+
+The keys are not repository secrets. Put them in two environments (Settings,
+Environments), each with the secrets `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`:
+
+| Environment | Key | Deployment branches |
+|-------------|-----|---------------------|
+| `ci-cache-write` | read/write | `main` only |
+| `ci-cache-read` | read-only, same bucket | any |
+
+Jobs on `main` use `ci-cache-write`. All other runs, PRs included, use `ci-cache-read`.
+PR code can read the key its job has, so only the branch rule keeps the write key out of
+PRs. Do not add reviewers or a wait timer to `ci-cache-read`, or every PR job waits.
+Do not also add the keys as repository or organization secrets: every job could read them,
+with or without an environment.
+
+Treat the write key like a deploy key. Jobs run the build scripts and proc-macros they
+restore from the storage, so whoever holds it can change what later CI runs execute.
+
+Runs without the secrets (PRs from forks, Dependabot PRs) use the GitHub Actions cache.
+They get no sccache objects from `main`, so their first run compiles everything. They do
+get the `cargo-gears` binary, which `main` also saves there.
+
+Files go under the `gears-rust/` prefix. Each job log shows the storage it used
+(`sccache backend:`).
+
+| Prefix | Contents | Lifecycle rule |
+|--------|----------|----------------|
+| `gears-rust/sccache/` | compiled crates | expire after 30 days |
+| `gears-rust/target/<job>/` | `<OS>.<commit>.<run>.tar.zst` archives and `<OS>.manifest.json`. Each save keeps its own archive and the previous one, and deletes the others once they are three hours old. | expire after 30 days, for archives a cancelled job left behind |
+| `gears-rust/trybuild/<job>/` | `<OS>.tar.zst` and `<OS>.key`, replaced on each save | expire after 30 days, for `.partial` uploads a cancelled job left behind |
+| `gears-rust/tools/cargo-gears/<version>/<OS>/` | the `cargo-gears` binary | none; delete old versions by hand |
+
+Every save on `main` rewrites the current objects, so a 30-day expiry only removes them
+when `main` has not built for that long; the next run then builds from scratch. Also add
+a rule that aborts incomplete multipart uploads after a day: the large archives upload in
+parts, and a cancelled save leaves them.
+
+To rotate a key: create a new key with the same access, put it in the environment, and
+revoke the old key after a new run is green. Rotate both keys regularly
+(`guidelines/SECURITY.md`), and the write key at once if it may have leaked.
 
 ---
 

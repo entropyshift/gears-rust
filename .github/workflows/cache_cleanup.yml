@@ -21,7 +21,8 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            const rustCachePrPrefix = 'v0-rust-pr-';
+            // All rust-cache keys.
+            const rustCachePrPrefix = 'v0-rust-';
             const keepNewestPerKey = 3;
             const retentionDays = 7;
             const maxDeletes = 200;
@@ -119,9 +120,122 @@ jobs:
                   cache_id: c.id,
                 });
               } catch (err) {
-                core.error(`Failed to delete cache id=${c.id} key=${c.key}: ${err.message}`);
-                throw new Error(`deleteActionsCacheById failed for cache id=${c.id} key=${c.key}: ${err.message}`);
+                // GitHub may have evicted it already; warn and go on.
+                core.warning(`Delete failed for cache id=${c.id} key=${c.key} (racing eviction?): ${err.message}`);
               }
             }
 
             core.info('Cache cleanup complete.');
+
+      # Second pass: trim the cache to a size target, least recently used first.
+      # The first pass alone can leave the cache near the 10 GB limit, and then
+      # GitHub evicts on its own and may drop the registry entry PRs need.
+      # Runs even if the first pass failed.
+      - name: Trim least-recently-used caches to quota target
+        if: ${{ !cancelled() }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Leaves ~3 GiB free for the next runs.
+            const targetBytes = 7 * 1024 ** 3;
+            const maxDeletes = 500;
+
+            let page = 1;
+            const perPage = 100;
+            const allCaches = [];
+
+            while (true) {
+              let res;
+              try {
+                res = await github.rest.actions.getActionsCacheList({
+                  owner,
+                  repo,
+                  per_page: perPage,
+                  page,
+                });
+              } catch (err) {
+                core.error(`Failed to fetch cache list page ${page}: ${err.message}`);
+                throw new Error(`getActionsCacheList failed on page ${page}: ${err.message}`);
+              }
+
+              const batch = res.data.actions_caches ?? [];
+              allCaches.push(...batch);
+
+              if (batch.length < perPage) break;
+              page += 1;
+              if (page > 50) break;
+            }
+
+            const total = allCaches.reduce((sum, c) => sum + (c.size_in_bytes ?? 0), 0);
+            core.info(`Repo cache usage: ${total} bytes across ${allCaches.length} entries (target: ${targetBytes}).`);
+
+            if (total <= targetBytes) {
+              core.info('Under target, nothing to trim.');
+              return;
+            }
+
+            const tsOf = (c) => new Date(c.last_accessed_at ?? c.created_at).getTime();
+
+            // Keep the newest main entry per OS of the caches PRs restore:
+            // cargo-registry-<OS>-*, cargo-gears-bin-*-<OS>, the lint job's
+            // cargo-gears-<ver>-<OS> and gts-validator-bin-*-<OS>. Only main
+            // counts: PRs cannot read other branches. Newest by creation: a PR
+            // on an older Cargo.lock can still hit an older key and bump its
+            // last access.
+            const protectedPatterns = [
+              /^cargo-registry-([^-]+)-/,
+              /^cargo-gears-bin-.+-([^-]+)$/,
+              /^cargo-gears-\d[^-]*-([^-]+)$/,
+              /^gts-validator-bin-.+-([^-]+)$/,
+            ];
+            const protectedIds = new Set();
+            for (const pattern of protectedPatterns) {
+              const newestPerOs = new Map();
+              for (const c of allCaches) {
+                if (c.ref !== 'refs/heads/main') continue;
+                const m = (c.key ?? '').match(pattern);
+                if (!m) continue;
+                const prev = newestPerOs.get(m[1]);
+                if (!prev || new Date(c.created_at) > new Date(prev.created_at)) newestPerOs.set(m[1], c);
+              }
+              for (const c of newestPerOs.values()) protectedIds.add(c.id);
+            }
+
+            const eligible = allCaches
+              .filter((c) => !protectedIds.has(c.id))
+              .sort((a, b) => tsOf(a) - tsOf(b)); // least recently used first
+
+            const excess = total - targetBytes;
+            const eligibleTotal = eligible.reduce((sum, c) => sum + (c.size_in_bytes ?? 0), 0);
+            if (eligibleTotal < excess) {
+              core.warning(
+                `Eligible caches (${eligibleTotal} bytes) cannot cover the excess (${excess} bytes); ` +
+                `${protectedIds.size} protected main seed(s) are excluded. Trimming what we can.`,
+              );
+            }
+
+            let freed = 0;
+            let deleted = 0;
+
+            // Whole entries are deleted, so this may free a bit more than needed.
+            for (const c of eligible) {
+              if (freed >= excess) break;
+              if (deleted >= maxDeletes) {
+                core.info(`Reached maxDeletes=${maxDeletes}, stopping.`);
+                break;
+              }
+              core.info(`Deleting cache id=${c.id} key=${c.key} size=${c.size_in_bytes} last_accessed_at=${c.last_accessed_at ?? c.created_at}`);
+              try {
+                await github.rest.actions.deleteActionsCacheById({ owner, repo, cache_id: c.id });
+                freed += c.size_in_bytes ?? 0;
+              } catch (err) {
+                // GitHub may have evicted it already; do not fail.
+                core.warning(`Delete failed for cache id=${c.id} key=${c.key} (racing eviction?): ${err.message}`);
+              }
+              deleted += 1;
+            }
+
+            core.info(`Processed ${deleted} delete(s), freed ~${freed} bytes.`);

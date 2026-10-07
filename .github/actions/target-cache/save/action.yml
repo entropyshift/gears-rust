@@ -1,0 +1,53 @@
+name: target cache (save)
+description: >-
+  Save target/debug to S3-compatible storage, on main only. See ../target-cache.sh.
+
+# Same storage inputs as sccache-probe.
+inputs:
+  name:
+    description: Archive name; defaults to the job id, one archive per job
+    required: false
+    default: ${{ github.job }}
+  s3-endpoint:
+    description: S3-compatible endpoint URL; empty for AWS S3
+    required: false
+    default: ""
+  s3-region:
+    description: S3 region; defaults to us-east-1
+    required: false
+    default: ""
+  s3-bucket:
+    description: S3 bucket name
+    required: false
+    default: ""
+  s3-access-key-id:
+    description: S3 access key id
+    required: false
+    default: ""
+  s3-secret-access-key:
+    description: S3 secret access key
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: target cache (save)
+      if: >-
+        inputs.s3-bucket != '' && inputs.s3-access-key-id != '' && inputs.s3-secret-access-key != ''
+        && github.ref == 'refs/heads/main'
+      shell: bash
+      env:
+        MODE: save
+        # Builds made with another toolchain or RUSTFLAGS are not worth restoring.
+        KEY: ${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}-${{ env.RUSTFLAGS }}
+        PREFIX: gears-rust/target/${{ inputs.name }}/${{ runner.os }}
+        S3_ENDPOINT: ${{ inputs.s3-endpoint }}
+        S3_BUCKET: ${{ inputs.s3-bucket }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.s3-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.s3-secret-access-key }}
+        AWS_DEFAULT_REGION: ${{ inputs.s3-region || 'us-east-1' }}
+        # Some S3-compatible servers (R2) reject the newer default checksums.
+        AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+        AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      run: bash "$GITHUB_ACTION_PATH/../target-cache.sh"

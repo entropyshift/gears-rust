@@ -1,0 +1,55 @@
+name: Cache Warm
+
+# Saves the shared Cargo registry cache (cargo-registry-<OS>-<lockhash>)
+# that ci.yml jobs restore. It runs on main, so every PR can read the entry.
+# Each run starts clean, so the entry holds only what `cargo fetch` needs.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/cache-warm.yml'
+      - '.github/actions/cargo-registry/**'
+  schedule:
+    # Weekly: GitHub drops entries unused for 7 days.
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  warm:
+    name: Warm registry cache (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain from rust-toolchain.toml
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup show
+
+      # Restore, and save on a miss.
+      - name: Cache Cargo registry
+        uses: ./.github/actions/cargo-registry
+        with:
+          save: "true"
+
+      - name: Fetch workspace dependencies
+        run: cargo fetch --locked

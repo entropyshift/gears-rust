@@ -158,6 +158,10 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    # S3 cache keys: see .github/actions/sccache-probe.
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'ci-cache-write' || 'ci-cache-read' }}
+      deployment: false
     timeout-minutes: 45
 
     steps:
@@ -181,18 +185,10 @@ jobs:
           rustup show active-toolchain || rustup toolchain install
           rustup show
 
-      # This job compiles more than any other: `e2e-local` builds the release
-      # binary and the lane-specific targets below each build their own feature
-      # configuration. Without a cache every run started from zero, which is
-      # what put e2e runs at 29-41 minutes. Mirrors the `integration` job in
-      # ci.yml — same actions, same pinned SHAs, same cache-targets: false
-      # (rust-cache holds the registry; sccache holds the compiled objects).
-      - name: Cache Cargo/target
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          cache-bin: false
-          cache-targets: false
-          shared-key: pr-${{ runner.os }}-e2e-${{ hashFiles('rust-toolchain.toml') }}
+      # This job compiles the most. The registry cache holds crate sources;
+      # sccache holds compiled objects.
+      - name: Restore Cargo registry
+        uses: ./.github/actions/cargo-registry
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -200,14 +196,14 @@ jobs:
 
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
-        shell: bash
-        run: |
-          if sccache --start-server >/dev/null 2>&1; then
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          else
-            echo "sccache failed, falling back to plain rustc"
-          fi
+        uses: ./.github/actions/sccache-probe
+        # Cache storage settings; see .github/actions/sccache-probe.
+        with:
+          s3-endpoint: ${{ vars.S3_ENDPOINT }}
+          s3-region: ${{ vars.S3_REGION }}
+          s3-bucket: ${{ vars.S3_BUCKET }}
+          s3-access-key-id: ${{ secrets.S3_ACCESS_KEY_ID }}
+          s3-secret-access-key: ${{ secrets.S3_SECRET_ACCESS_KEY }}
 
       - name: Install Python dependencies
         run: pip install -r testing/e2e/requirements.txt

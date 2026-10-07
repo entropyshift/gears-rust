@@ -33,6 +33,8 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: full
   CARGO_INCREMENTAL: "0"
+  # cargo-gears for `make install-tools`. Keep equal to ci.yml.
+  GEARS_CLI_VERSION: "0.0.7"
 
 jobs:
   detect:
@@ -197,6 +199,10 @@ jobs:
     needs: detect
     if: needs.detect.outputs.scoped == 'true'
     runs-on: ubuntu-latest
+    # S3 cache keys: see .github/actions/sccache-probe.
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'ci-cache-write' || 'ci-cache-read' }}
+      deployment: false
     env:
       RUSTFLAGS: "-C debuginfo=0"
     steps:
@@ -231,30 +237,33 @@ jobs:
           rustup show active-toolchain || rustup toolchain install
           rustup show
 
+      # cargo-deny so `make install-tools` does not build it.
       - name: Install cargo tools
         uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
         with:
-          tool: cargo-hack, nextest, cargo-llvm-cov
+          tool: cargo-hack, nextest, cargo-llvm-cov, cargo-deny@0.20.2
+
+      # Shared Cargo registry cache, restore only.
+      - name: Restore Cargo registry
+        uses: ./.github/actions/cargo-registry
+
+      # Prebuilt cargo-gears. Must run before the sccache probe.
+      - name: Install cargo-gears
+        uses: ./.github/actions/cargo-gears-bin
+        # Storage settings, reused below as `*cache-storage`.
+        with: &cache-storage
+          s3-endpoint: ${{ vars.S3_ENDPOINT }}
+          s3-region: ${{ vars.S3_REGION }}
+          s3-bucket: ${{ vars.S3_BUCKET }}
+          s3-access-key-id: ${{ secrets.S3_ACCESS_KEY_ID }}
+          s3-secret-access-key: ${{ secrets.S3_SECRET_ACCESS_KEY }}
 
       - name: Install sccache
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Probe sccache & set RUSTC_WRAPPER
-        shell: bash
-        run: |
-          if sccache --start-server >/dev/null 2>&1; then
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          else
-            echo "sccache failed, falling back to plain rustc"
-          fi
-
-      - name: Cache Cargo/target
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          cache-bin: false
-          cache-targets: false
-          shared-key: pr-gear-scoped-${{ hashFiles('rust-toolchain.toml') }}
+        uses: ./.github/actions/sccache-probe
+        with: *cache-storage
 
       - name: Mark required tools installed
         run: touch .setup-stamp

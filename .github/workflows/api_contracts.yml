@@ -21,6 +21,8 @@ on:
       - 'config/e2e-features.txt'
       - 'docs/api/api.json'
       - '.github/workflows/api_contracts.yml'
+      # Composite actions this job uses.
+      - '.github/actions/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -37,6 +39,10 @@ jobs:
   api_contracts:
     name: API Contract Checks
     runs-on: ubuntu-latest
+    # S3 cache keys: see .github/actions/sccache-probe.
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'ci-cache-write' || 'ci-cache-read' }}
+      deployment: false
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -85,13 +91,9 @@ jobs:
           rustup show active-toolchain || rustup toolchain install
           rustup show
 
-      # Cache Cargo registry/git + target/ across platforms.
-      - name: Cache Cargo/target
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          cache-bin: false
-          cache-targets: false
-          shared-key: pr-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}
+      # Shared Cargo registry cache, restore only.
+      - name: Restore Cargo registry
+        uses: ./.github/actions/cargo-registry
 
       # Install sccache (cross-platform)
       - name: Install sccache
@@ -99,13 +101,14 @@ jobs:
 
       # Probe sccache; if startup fails, fall back to plain rustc (no hard CI failure).
       - name: Probe sccache & set RUSTC_WRAPPER
-        run: |
-          if sccache --start-server >/dev/null 2>&1; then
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          else
-            echo "sccache failed, falling back to plain rustc"
-          fi
+        uses: ./.github/actions/sccache-probe
+        # Cache storage settings; see .github/actions/sccache-probe.
+        with:
+          s3-endpoint: ${{ vars.S3_ENDPOINT }}
+          s3-region: ${{ vars.S3_REGION }}
+          s3-bucket: ${{ vars.S3_BUCKET }}
+          s3-access-key-id: ${{ secrets.S3_ACCESS_KEY_ID }}
+          s3-secret-access-key: ${{ secrets.S3_SECRET_ACCESS_KEY }}
 
       - name: Save committed spec & generate fresh spec
         run: |

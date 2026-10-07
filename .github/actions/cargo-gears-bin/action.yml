@@ -1,0 +1,169 @@
+name: Install pinned cargo-gears
+description: >-
+  Put a prebuilt cargo-gears binary in ~/.cargo/bin for `make install-tools`,
+  building it from source only on a miss. Stored in the configured
+  S3-compatible storage, or else in the GitHub Actions cache.
+
+# Same storage inputs as sccache-probe. Version: GEARS_CLI_VERSION.
+inputs:
+  version:
+    description: cargo-gears version; defaults to the GEARS_CLI_VERSION env var
+    required: false
+    default: ""
+  s3-endpoint:
+    description: S3-compatible endpoint URL; empty for AWS S3
+    required: false
+    default: ""
+  s3-region:
+    description: S3 region; defaults to us-east-1
+    required: false
+    default: ""
+  s3-bucket:
+    description: S3 bucket name
+    required: false
+    default: ""
+  s3-access-key-id:
+    description: S3 access key id
+    required: false
+    default: ""
+  s3-secret-access-key:
+    description: S3 secret access key
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # Runs before the sccache probe, so a source build does not fill sccache
+    # with objects no other job uses.
+    - name: Select cargo-gears storage
+      id: pick
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version || env.GEARS_CLI_VERSION }}
+        S3_READY: ${{ inputs.s3-bucket != '' && inputs.s3-access-key-id != '' && inputs.s3-secret-access-key != '' }}
+      run: |
+        if [[ -z "$VERSION" ]]; then
+          echo "::error::no cargo-gears version: pass \`version\` or set GEARS_CLI_VERSION"
+          exit 1
+        fi
+        echo "kind=$([[ "$S3_READY" == "true" ]] && echo s3 || echo gha)" >> "$GITHUB_OUTPUT"
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+    # Object: gears-rust/tools/cargo-gears/<version>/<OS>/cargo-gears[.exe].
+    # Only main uploads, so a PR cannot plant a binary that main runs.
+    - name: cargo-gears via S3 storage
+      if: steps.pick.outputs.kind == 's3'
+      shell: bash
+      env:
+        GEARS_VERSION: ${{ steps.pick.outputs.version }}
+        S3_ENDPOINT: ${{ inputs.s3-endpoint }}
+        S3_BUCKET: ${{ inputs.s3-bucket }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.s3-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.s3-secret-access-key }}
+        AWS_DEFAULT_REGION: ${{ inputs.s3-region || 'us-east-1' }}
+        UPLOAD: ${{ github.ref == 'refs/heads/main' }}
+        # Some S3-compatible servers (R2) reject the newer default checksums.
+        AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+        AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      run: |
+        set -euo pipefail
+        exe=""
+        bin_dir="$HOME/.cargo/bin"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          exe=".exe"
+          # aws.exe needs a Windows path, and MSYS must not rewrite the s3:// URL.
+          bin_dir="$(cygpath -w "$bin_dir")"
+          export MSYS_NO_PATHCONV=1
+        fi
+        endpoint_arg=()
+        if [[ -n "$S3_ENDPOINT" ]]; then
+          endpoint_arg=(--endpoint-url "$S3_ENDPOINT")
+          # Path-style addressing for custom endpoints, like sccache.
+          export AWS_CONFIG_FILE="$RUNNER_TEMP/aws-config"
+          printf '[default]\ns3 =\n    addressing_style = path\n' > "$AWS_CONFIG_FILE"
+        fi
+        mkdir -p "$HOME/.cargo/bin"
+        local_bin="$bin_dir/cargo-gears$exe"
+        remote="s3://$S3_BUCKET/gears-rust/tools/cargo-gears/$GEARS_VERSION/$RUNNER_OS/cargo-gears$exe"
+        # Safe expansion of an empty array under `set -u`.
+        s3() { aws s3 cp ${endpoint_arg[@]+"${endpoint_arg[@]}"} --only-show-errors "$@"; }
+        # Download, quiet when the object does not exist. Any other error (no
+        # access, wrong endpoint) is a warning, so it does not look like a miss.
+        s3err="$RUNNER_TEMP/cargo-gears-s3.err"
+        fetch() {
+          s3 "$@" 2>"$s3err" && return 0
+          grep -qE '\(404\)|NoSuchKey|does not exist' "$s3err" \
+            || echo "::warning::cargo-gears storage: $(tr '\n' ' ' < "$s3err")"
+          return 1
+        }
+
+        runs() {
+          env -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY \
+            "$HOME/.cargo/bin/cargo-gears$exe" --version
+        }
+
+        # A stored binary that does not run here is rebuilt at the pinned
+        # version, not left for `make install-tools` to replace with the latest.
+        if fetch "$remote" "$local_bin" && chmod +x "$HOME/.cargo/bin/cargo-gears$exe" && runs; then
+          echo "::notice::cargo-gears $GEARS_VERSION restored from S3 storage"
+        else
+          rm -f "$HOME/.cargo/bin/cargo-gears$exe"
+          echo "cargo-gears $GEARS_VERSION not in S3 storage yet, or it does not run; building from source"
+          # Build without the storage keys.
+          env -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY \
+            cargo install --locked "cargo-gears@$GEARS_VERSION"
+          runs
+          if [[ "$UPLOAD" == "true" ]]; then
+            s3 "$local_bin" "$remote" \
+              || echo "::warning::could not upload cargo-gears to S3 storage"
+          fi
+        fi
+
+    # Main also saves the binary in the GitHub Actions cache, for runs
+    # without secrets (forks, Dependabot). Look up first: the key is immutable.
+    - name: Look up cargo-gears in the GitHub Actions cache
+      id: gha-seed
+      if: steps.pick.outputs.kind == 's3' && github.ref == 'refs/heads/main'
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ~/.cargo/bin/cargo-gears
+          ~/.cargo/bin/cargo-gears.exe
+        key: cargo-gears-bin-${{ steps.pick.outputs.version }}-${{ runner.os }}
+        lookup-only: true
+
+    - name: Copy cargo-gears to the GitHub Actions cache
+      if: steps.gha-seed.outcome == 'success' && steps.gha-seed.outputs.cache-hit != 'true'
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ~/.cargo/bin/cargo-gears
+          ~/.cargo/bin/cargo-gears.exe
+        key: cargo-gears-bin-${{ steps.pick.outputs.version }}-${{ runner.os }}
+
+    # GitHub Actions cache path, for runs without the S3 keys. PRs only
+    # restore. The save follows the install, so a failed install is not saved.
+    - name: Restore cargo-gears
+      id: gha-restore
+      if: steps.pick.outputs.kind == 'gha'
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ~/.cargo/bin/cargo-gears
+          ~/.cargo/bin/cargo-gears.exe
+        key: cargo-gears-bin-${{ steps.pick.outputs.version }}-${{ runner.os }}
+
+    - name: Install cargo-gears
+      if: steps.pick.outputs.kind == 'gha' && steps.gha-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: cargo install --locked "cargo-gears@${{ steps.pick.outputs.version }}"
+
+    - name: Save cargo-gears
+      if: steps.pick.outputs.kind == 'gha' && steps.gha-restore.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ~/.cargo/bin/cargo-gears
+          ~/.cargo/bin/cargo-gears.exe
+        key: cargo-gears-bin-${{ steps.pick.outputs.version }}-${{ runner.os }}

@@ -23,8 +23,11 @@ updates:
   # Pinned action SHAs. Pinning by commit (#2093) is only half of the practice:
   # a frozen SHA never picks up the action's own security releases unless
   # something moves it forward.
+  # `/` covers only .github/workflows, so list the composite actions too.
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "weekly"
     groups:
