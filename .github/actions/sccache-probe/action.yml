@@ -1,0 +1,87 @@
+name: Probe sccache & set RUSTC_WRAPPER
+description: >-
+  Start the sccache server on the configured S3-compatible storage, or else on
+  the GitHub Actions cache, and enable it as RUSTC_WRAPPER; plain rustc if
+  neither starts. Never fails the job. Run after mozilla-actions/sccache-action
+  has installed the binary.
+
+# Setup (vars, the two environments with the keys): docs/TESTING.md 7.4.
+# The write key is only for main. PR code can read the key from the
+# sccache server, so PRs get the read-only key.
+inputs:
+  s3-endpoint:
+    description: S3-compatible endpoint URL; empty for AWS S3
+    required: false
+    default: ""
+  s3-region:
+    description: S3 region; defaults to us-east-1
+    required: false
+    default: ""
+  s3-bucket:
+    description: S3 bucket name
+    required: false
+    default: ""
+  s3-access-key-id:
+    description: S3 access key id
+    required: false
+    default: ""
+  s3-secret-access-key:
+    description: S3 secret access key
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # Order: S3 storage, then GitHub Actions cache, then plain rustc.
+    # The keys stay in this step; later steps only talk to the server.
+    # Idle timeout 0: otherwise the server stops during long test runs and
+    # the next compile starts a new one without the storage settings.
+    - name: Probe sccache & set RUSTC_WRAPPER
+      shell: bash
+      env:
+        S3_ENDPOINT: ${{ inputs.s3-endpoint }}
+        S3_REGION: ${{ inputs.s3-region }}
+        S3_BUCKET: ${{ inputs.s3-bucket }}
+        S3_ACCESS_KEY_ID: ${{ inputs.s3-access-key-id }}
+        S3_SECRET_ACCESS_KEY: ${{ inputs.s3-secret-access-key }}
+        SCCACHE_IDLE_TIMEOUT: "0"
+      run: |
+        start() {
+          if sccache --start-server > /tmp/sccache-start.log 2>&1; then
+            return 0
+          fi
+          echo "sccache failed to start on the $1 backend; startup output:"
+          cat /tmp/sccache-start.log || true
+          sccache --stop-server > /dev/null 2>&1 || true
+          return 1
+        }
+
+        # Empty endpoint means AWS S3.
+        start_s3() {
+          local rc=0
+          if [[ -n "$S3_ENDPOINT" ]]; then export SCCACHE_ENDPOINT="$S3_ENDPOINT"; fi
+          SCCACHE_REGION="${S3_REGION:-us-east-1}" \
+            SCCACHE_BUCKET="$S3_BUCKET" \
+            SCCACHE_S3_KEY_PREFIX=gears-rust/sccache/ \
+            AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" \
+            AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
+            start s3 || rc=$?
+          unset SCCACHE_ENDPOINT
+          return "$rc"
+        }
+
+        if [[ -n "$S3_BUCKET" && -n "$S3_ACCESS_KEY_ID" && -n "$S3_SECRET_ACCESS_KEY" ]] && start_s3; then
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          echo "::notice::sccache backend: S3 storage (${S3_ENDPOINT:-AWS S3})"
+        else
+          # This server does not need the S3 keys.
+          unset S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY
+          if SCCACHE_GHA_ENABLED=true start gha; then
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+            echo "::notice::sccache backend: GitHub Actions cache"
+          else
+            echo "::warning::sccache unavailable, building with plain rustc"
+          fi
+        fi

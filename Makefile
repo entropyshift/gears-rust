@@ -70,6 +70,9 @@ endef
 DENY_MIN_VERSION := 0.20.0
 NEXTEST_MIN_VERSION := 0.9.130
 CARGO_GEARS_MIN_VERSION := 0.0.6
+# Version `install-tools` installs when the check fails: CI's pin
+# (GEARS_CLI_VERSION in the workflows), else the minimum.
+CARGO_GEARS_INSTALL_VERSION := $(or $(GEARS_CLI_VERSION),$(CARGO_GEARS_MIN_VERSION))
 
 # check_tool_version(tool, requirement)
 # Verify a tool satisfies a semver requirement. Exits with an error if not.
@@ -392,7 +395,7 @@ gts-docs:
 install-tools:
 	$(call print_target_banner)
 	@cargo gears tools check-version cargo-gears '>=$(CARGO_GEARS_MIN_VERSION)' >/dev/null 2>&1 \
-	|| (echo "Installing cargo-gears >= $(CARGO_GEARS_MIN_VERSION)..." && cargo install cargo-gears)
+	|| (echo "Installing cargo-gears $(CARGO_GEARS_INSTALL_VERSION)..." && cargo install --locked "cargo-gears@$(CARGO_GEARS_INSTALL_VERSION)")
 	@cargo gears tools check-version cargo-nextest '>=$(NEXTEST_MIN_VERSION)' >/dev/null 2>&1 \
 	|| (echo "Installing cargo-nextest >= $(NEXTEST_MIN_VERSION)..." && cargo install --locked cargo-nextest)
 	@cargo gears tools check-version cargo-deny '>=$(DENY_MIN_VERSION)' >/dev/null 2>&1 \
@@ -687,7 +690,7 @@ OPENAPI_BUILD_FEATURE_ARGS := $(if $(GEAR),$(GEAR_OPENAPI_FEATURE_ARGS),$(OPENAP
 
 # -------- Tests --------
 
-.PHONY: test test-no-macros test-macros test-sqlite test-pg test-pgq test-mysql test-db test-users-info-pg test-usage-collector-pg test-usage-collector-ch test-types-registry-db test-cluster-pg test-cluster-redis test-cluster-k8s coverage-cluster-k8s test-rg-pg test-settings-service-pg test-pricing-pg test-coord-pg test-products-pg test-fixtures-narrow test-fips
+.PHONY: test test-no-macros build-no-macros test-macros test-sqlite test-pg test-pgq test-mysql test-db test-users-info-pg test-usage-collector-pg test-usage-collector-ch test-types-registry-db test-cluster-pg test-cluster-redis test-cluster-k8s coverage-cluster-k8s test-rg-pg test-settings-service-pg test-pricing-pg test-coord-pg test-products-pg test-fixtures-narrow test-fips
 
 # Run all tests, or a single gear when GEAR=<gear> is set.
 # When GEAR= is set, cargo gears ls packages finds matching crates + their
@@ -702,9 +705,18 @@ else
 	cargo nextest run $$GEAR_SCOPE $(GEAR_FEATURE_ARGS) $(GEAR_TEST_ARGS) $(GEAR_NO_TESTS_FLAG)
 endif
 
+NO_MACROS_SCOPE := --workspace --exclude cf-gears-toolkit-macros-tests --exclude cf-gears-toolkit-db-macros
+
 test-no-macros: install-tools
 	$(call print_target_banner)
-	cargo nextest run --workspace --exclude cf-gears-toolkit-macros-tests --exclude cf-gears-toolkit-db-macros
+	cargo nextest run $(NO_MACROS_SCOPE)
+
+## Build what test-no-macros runs, without running it
+# CI saves target/ here, before tests like toolkit-gts's prefix_customization
+# rebuild crates in it.
+build-no-macros: install-tools
+	$(call print_target_banner)
+	cargo nextest run --no-run $(NO_MACROS_SCOPE)
 
 test-macros: install-tools
 	$(call print_target_banner)

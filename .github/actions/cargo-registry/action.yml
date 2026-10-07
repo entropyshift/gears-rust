@@ -1,0 +1,42 @@
+name: Cargo registry cache
+description: >-
+  Restore the shared Cargo registry snapshot (crate sources and the git DB),
+  or, with `save: true`, also save it. The paths and the key live only here.
+
+# One key per OS and Cargo.lock, shared by all jobs. Compiled objects live
+# in sccache, not here. Not rust-cache: its key includes RUSTFLAGS, which
+# differs per job. Jobs only restore; cache-warm.yml saves, on main, so
+# every PR can read it.
+inputs:
+  save:
+    description: >-
+      "true" to also save the entry when the key misses (cache-warm.yml only).
+      Saves an exact snapshot, so it does not fall back to an older key.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Restore Cargo registry
+      if: inputs.save != 'true'
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ~/.cargo/registry/index
+          ~/.cargo/registry/cache
+          ~/.cargo/git/db
+        key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+        restore-keys: |
+          cargo-registry-${{ runner.os }}-
+
+    # Restore, and save on a miss.
+    - name: Cache Cargo registry
+      if: inputs.save == 'true'
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ~/.cargo/registry/index
+          ~/.cargo/registry/cache
+          ~/.cargo/git/db
+        key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
