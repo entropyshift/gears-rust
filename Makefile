@@ -712,8 +712,6 @@ test-no-macros: install-tools
 	cargo nextest run $(NO_MACROS_SCOPE)
 
 ## Build what test-no-macros runs, without running it
-# CI saves target/ here, before tests like toolkit-gts's prefix_customization
-# rebuild crates in it.
 build-no-macros: install-tools
 	$(call print_target_banner)
 	cargo nextest run --no-run $(NO_MACROS_SCOPE)
