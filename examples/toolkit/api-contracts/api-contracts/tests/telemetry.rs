@@ -10,7 +10,6 @@
 //! only the wire-level `traceparent` injection).
 
 #![allow(clippy::unwrap_used)]
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 
 use std::collections::HashMap;

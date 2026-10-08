@@ -2,7 +2,7 @@
 //! The derived usage type store on `PostgreSQL` (P-D-231, `m20261001_000012`): a version is
 //! append-only by its trigger, its foreign key is tenant-qualified, and the repository's refusals
 //! are the typed ones on this engine too. The `SQLite` twin is the migration's `_tests.rs`.
-mod pg_support;
+use crate::pg_support;
 
 use bss_products::{
     domain::derived::{NewDerivedType, NewDerivedVersion},

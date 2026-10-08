@@ -501,7 +501,7 @@ TLS state machine. Only the crypto-primitive backend behind a `cfg` branch MUST 
   `Security.framework`.
 - [ ] `dumpbin /imports target/release/cf-gears-fips-probe.exe | findstr /i "bcrypt aws"` on Windows+fips shows only
   `bcrypt.dll`.
-- [ ] `cargo test -p cf-gears-rustls-corecrypto-provider --features fips --test fips_provider_invariants` passes.
+- [ ] `cargo test -p cf-gears-rustls-corecrypto-provider --features fips --test integration fips_provider_invariants::` passes.
 - [ ] `cargo run -p cf-gears-fips-probe --features fips -- --url https://www.howsmyssl.com/a/check` reports
   `given_cipher_suites` containing only AES-GCM, `given_named_groups` only `secp256r1` / `secp384r1`,
   `post_quantum_key_agreement: false`.

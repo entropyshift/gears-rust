@@ -3,7 +3,7 @@
 //! identity, decision or pin of the source; a deprecated SKU is carried and is red in the new
 //! plan's checks (D-408).
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_products_sdk::models::{Lifecycle, ReferenceKind, SkuType};
 use plan_support::{
     Fixture, book, entry, holding, id_of, item, item_with_qty, items, ops_for, plan, publish, raw,

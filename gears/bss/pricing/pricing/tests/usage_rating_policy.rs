@@ -1,8 +1,8 @@
 //! Entry-owned immutable policy authoring and identity.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod pg_support;
-mod plan_support;
-mod seam_support;
+use crate::pg_support;
+use crate::plan_support;
+use crate::seam_support;
 use plan_support::entry_support::{Fixture, Script};
 use serde_json::{Value, json};
 use std::sync::Arc;

@@ -13,6 +13,7 @@ publish = false
 # `::secrecy::ExposeSecret`, so the UI cases that expand them need both crates.
 # cargo-shear sees neither: `tests/ui/**` is in the workspace `ignored-paths`,
 # and `--expand` expands the `async_trait` attribute away before it scans.
+autotests = false
 [package.metadata.cargo-shear]
 ignored = ["async-trait", "secrecy"]
 
@@ -42,3 +43,8 @@ thiserror = { workspace = true }
 toolkit-security = { workspace = true }
 secrecy = { workspace = true }
 uuid = { workspace = true }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

@@ -2,7 +2,7 @@
 
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::doc_markdown)]
 
-mod common;
+use crate::common;
 
 #[path = "refresh/resolution_limits.rs"]
 mod resolution_limits;

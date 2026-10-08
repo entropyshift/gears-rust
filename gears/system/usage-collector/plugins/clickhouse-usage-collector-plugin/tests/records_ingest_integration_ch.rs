@@ -7,7 +7,7 @@
 //! dedup token. Requires Docker, except for the fixture-contract test at the
 //! bottom of the file.
 
-mod common;
+use crate::common;
 
 use rust_decimal::Decimal;
 use tokio::sync::Barrier;

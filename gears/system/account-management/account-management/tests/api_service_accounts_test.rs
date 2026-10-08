@@ -12,7 +12,6 @@
 //! input caps, and failure mapping are pinned by
 //! `domain::service_account::service_tests`.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(
     clippy::expect_used,
@@ -21,7 +20,7 @@
     clippy::doc_markdown
 )]
 
-mod common;
+use crate::common;
 
 use axum::http::{StatusCode, header};
 use tower::ServiceExt;

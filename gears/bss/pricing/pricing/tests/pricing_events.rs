@@ -2,7 +2,7 @@
 //! in the transaction that ends a unit, in the broker's producer-outbox envelope, and absent
 //! whenever that transaction does not commit.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
+use crate::entry_support;
 use bss_pricing::infra::{
     events::{
         APPROVAL_UNIT_SUBJECT_TYPE, ApprovalUnitDecided, PRICE_BOOK_SUBJECT_TYPE, PricesPublished,

@@ -5,7 +5,7 @@
 //! the walk is checked for the EXACT `(submitted_at, id)` order in both directions, with
 //! sub-second instants and ties within one gear and across the two. (`SQLite` keeps the instant as
 //! text, which does not order as time inside one second, D-470.)
-mod pg_support;
+use crate::pg_support;
 
 use async_trait::async_trait;
 use authz_resolver_sdk::constraints::{Constraint, InPredicate, Predicate};

@@ -9,6 +9,7 @@ repository.workspace = true
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["web-programming"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "account_management"
@@ -123,3 +124,8 @@ opentelemetry_sdk = { workspace = true, features = ["testing"] }
 testcontainers = { workspace = true }
 testcontainers-modules = { workspace = true }
 test-containers = { workspace = true }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

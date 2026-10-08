@@ -34,7 +34,7 @@ use types_registry::domain::policy::RegistrationPolicy;
 use types_registry::domain::ports::{NewOperation, NewOperationItem, OperationItemRow};
 use types_registry::infra::storage::repo::{EntityRepo, OperationRepo};
 
-mod common;
+use crate::common;
 use common::{allow_all, stores, test_db};
 
 const NOW: OffsetDateTime = datetime!(2026-09-29 09:00:00 UTC);

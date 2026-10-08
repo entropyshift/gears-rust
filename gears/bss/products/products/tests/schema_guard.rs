@@ -6,7 +6,7 @@
 //! Postgres twin is `postgres_schema_guard.rs`; pricing carries the same suite (D-423).
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod guard_support;
+use crate::guard_support;
 
 use bss_products::gear::BssProductsGear;
 use bss_products::infra::storage::migrations::m0000_products_refuse_a_legacy_or_stale_schema as guard;

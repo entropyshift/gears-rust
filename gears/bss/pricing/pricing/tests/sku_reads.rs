@@ -3,7 +3,7 @@
 //! entry, and one plan item with its revision and plan — each list in a fixed number of
 //! statements, whatever the number of rows.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::infra::storage::{
     entity::{plan_revision, price},
     repo::{plan_revision_repo, price_book_entry_repo, price_repo},

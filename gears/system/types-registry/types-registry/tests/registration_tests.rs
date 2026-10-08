@@ -2,7 +2,7 @@
 
 //! Integration tests for entity registration flows
 
-mod common;
+use crate::common;
 
 use axum::http::StatusCode;
 use common::create_service;

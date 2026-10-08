@@ -3,7 +3,7 @@
 //! categories and takes it away again, and the SKU list, its counts and the category list hide an
 //! archived row by default on the engine production runs. The `SQLite` twin of the migration is
 //! its `_tests.rs`; the doors' twin is `src/api/rest/archive_tests.rs`.
-mod pg_support;
+use crate::pg_support;
 
 use bss_products::{
     domain::{category::NewCategory, sku::NewSku},

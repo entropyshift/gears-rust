@@ -7,11 +7,10 @@
 //! (`is_descendant`, `count_closure_rows`) can seed edges without the
 //! referenced tenant rows.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod common;
+use crate::common;
 
 use std::collections::BTreeMap;
 

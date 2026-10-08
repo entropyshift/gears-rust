@@ -1,7 +1,6 @@
 //! Pure supported-profile contract; no database or live provider is consulted.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
-mod seam_support;
+use crate::seam_support;
 use bss_pricing::domain::commercial_terms::validate_commercial_terms;
 use bss_pricing_sdk::{
     digest::{money_digest, policy_digest},

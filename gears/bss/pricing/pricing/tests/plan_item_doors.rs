@@ -3,7 +3,7 @@
 //! of the revision's author (D-404), and `GET /plan-revisions/{id}/checks` over fresh SKU reads
 //! (D-408), with `blocked_by` naming the pending price unit (spec §8).
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::{
     api::rest::authoring::{dto, plan_items},
     infra::storage::repo::{price_book_entry_repo, price_repo},

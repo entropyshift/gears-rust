@@ -12,7 +12,7 @@ use oidc_authn_plugin::claim_mapper::{
 use serde_json::json;
 use uuid::Uuid;
 
-pub mod common;
+use crate::common;
 
 use common::{claims, create_test_metrics};
 

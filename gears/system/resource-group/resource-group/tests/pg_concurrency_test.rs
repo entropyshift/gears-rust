@@ -34,7 +34,7 @@
 //! | 8 | tenant check + membership insert, forced overlap at `SERIALIZABLE` | | SSI cancels one side; the resource ends up owned by one tenant |
 //! | 9 | same forced overlap at the backend default | | negative control: both commit and the resource ends up owned by two tenants |
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 

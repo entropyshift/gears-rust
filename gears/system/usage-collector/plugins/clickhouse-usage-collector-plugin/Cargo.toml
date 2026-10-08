@@ -9,6 +9,7 @@ repository.workspace = true
 rust-version.workspace = true
 keywords = ["constructorfabric", "cf-gears"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "clickhouse_usage_collector_plugin"
@@ -94,3 +95,8 @@ test-containers = { workspace = true }
 opentelemetry_sdk = { workspace = true, features = ["testing"] }
 # Non-human-readable serde for `ch_uuid` / `ch_decimal128_9` binary-path unit tests.
 postcard = { workspace = true }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

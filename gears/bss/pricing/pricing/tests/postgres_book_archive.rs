@@ -3,8 +3,8 @@
 //! and a book is archived, listed and unarchived through its doors on the native engine. The
 //! `SQLite` twins are the migration's `_tests.rs` and `book_archive.rs`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod pg_support;
-mod plan_support;
+use crate::pg_support;
+use crate::plan_support;
 
 use bss_pricing::module::BssPricingGear;
 use bss_products_sdk::models::{ReferenceState, SkuType};

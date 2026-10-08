@@ -10,7 +10,7 @@
 //! `common::test_db_with_recorder()` and driving it against a real SQLite
 //! connection actually observes statements and tags transaction membership.
 
-mod common;
+use crate::common;
 
 use uuid::Uuid;
 

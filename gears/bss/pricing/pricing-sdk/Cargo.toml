@@ -3,6 +3,7 @@ name = "cf-gears-bss-pricing-sdk"
 edition.workspace = true
 license.workspace = true
 description = "BSS Plan & Price Modeling SDK: infrastructure-free contract for ClientHub consumers"
+autotests = false
 
 [lib]
 name = "bss_pricing_sdk"
@@ -23,3 +24,14 @@ aws-lc-rs = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+
+# Its own binary: it compiles src/digest.rs as a module, and that file names
+# `crate::Digest` and friends, which only this file's root provides.
+[[test]]
+name = "digest_vectors"
+path = "tests/digest_vectors.rs"

@@ -6,11 +6,10 @@
 //! them through `ServiceAccountService`, rather than requiring an HTTP call back
 //! into Account Management.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::doc_markdown)]
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 

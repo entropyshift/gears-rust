@@ -3,7 +3,7 @@
 //! case through the ICU root collation — on a `C`-locale database too — and takes wildcards
 //! literally, the null filters and the cursor order hold on the engine production runs, and the
 //! counts group in one statement.
-mod pg_support;
+use crate::pg_support;
 
 use bss_products::{
     domain::{category::NewCategory, sku::NewSku},

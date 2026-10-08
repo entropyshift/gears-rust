@@ -15,8 +15,8 @@
 
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod pg_support;
-mod schema_dump;
+use crate::pg_support;
+use crate::schema_dump;
 
 use schema_dump::postgres_dump;
 

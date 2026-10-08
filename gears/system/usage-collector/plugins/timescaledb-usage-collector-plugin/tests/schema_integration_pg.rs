@@ -1,5 +1,5 @@
 #![cfg(feature = "postgres")]
-mod common;
+use crate::common;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_migrations_create_hypertable_and_retention() {

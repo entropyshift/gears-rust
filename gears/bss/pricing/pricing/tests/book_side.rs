@@ -4,7 +4,7 @@
 //! card, the queue and the publish-changes listing), with its entry SKUs' current descriptors kept
 //! outside the fingerprinted `after`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_products_sdk::models::SkuType;
 use plan_support::{
     Fixture, book, id_of, item, items, lock, plan, policy_entry as entry, publish, setup, text,

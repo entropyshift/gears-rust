@@ -3,7 +3,7 @@
 //! Every suite here runs once per reference kind (D-407): an entry through the entries REST door,
 //! a plan item through the plan-item op-level API (its REST door is run 3.3's).
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
+use crate::entry_support;
 use bss_pricing::{
     domain::price_book_entry::OpState,
     infra::{

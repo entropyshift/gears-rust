@@ -33,7 +33,7 @@ use types_registry::infra::storage::entity::{
     entity, instance_revision, operation_item, type_schema_revision,
 };
 
-mod common;
+use crate::common;
 use common::{allow_all, stores, test_db};
 
 const NOW: OffsetDateTime = datetime!(2026-09-08 09:15:30 UTC);

@@ -549,7 +549,7 @@ vmmap <cf-gears-server-pid> | grep -E 'corecrypto|Security\.framework'        # 
 make fips-policy
 
 # 5. Wire-shape regression for our macOS provider:
-cargo test -p cf-gears-rustls-corecrypto-provider --features fips --test fips_provider_invariants
+cargo test -p cf-gears-rustls-corecrypto-provider --features fips --test integration fips_provider_invariants::
 ```
 
 See [`examples/cf-gears-fips-probe/README.md`](../../examples/cf-gears-fips-probe/README.md) for the full four-layer verification chain (linkage, runtime, wire-level, cert-validation).

@@ -5,7 +5,6 @@
 //! through the real router into the service-side `list_children`
 //! repository call.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(
     clippy::expect_used,
@@ -14,7 +13,7 @@
     clippy::doc_markdown
 )]
 
-mod common;
+use crate::common;
 
 use std::collections::HashMap;
 

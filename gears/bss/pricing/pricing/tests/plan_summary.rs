@@ -2,7 +2,7 @@
 //! Red first: the chain names `000020`, the list serves the axes and a page, the counts
 //! route answers, and a source scan requires every plan write to refresh the summary.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::domain::plan::{self, StoredRevision};
 use bss_pricing::infra::plan_summary::{RevisionFact, change, selling, summarize};
 use bss_pricing::infra::reference_ticker::Ticker;

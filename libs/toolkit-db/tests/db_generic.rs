@@ -4,7 +4,7 @@
     any(feature = "sqlite", feature = "pg", feature = "mysql")
 ))]
 
-mod common;
+use crate::common;
 use anyhow::Result;
 use sea_orm::EntityTrait;
 use sea_orm_migration::prelude as mig;

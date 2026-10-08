@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears", "cf-gears-toolkit"]
 categories = ["development-tools::procedural-macro-helpers"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 proc-macro = true
@@ -35,3 +36,8 @@ trybuild = { workspace = true }
 # is published *after* us (it depends on this crate), so the release fails.
 toolkit-odata = { package = "cf-gears-toolkit-odata", path = "../toolkit-odata" }
 uuid = { workspace = true, features = ["v7"] }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

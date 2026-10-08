@@ -29,8 +29,7 @@
 /// The suite's fixtures: the same ontology and context helpers, so the graph
 /// this lane times is the graph the conformance cases describe. Only part of
 /// it is used from this binary, hence the allowance.
-#[allow(dead_code)]
-mod conformance;
+use crate::conformance;
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};

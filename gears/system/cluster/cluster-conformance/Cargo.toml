@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "cluster_conformance"
@@ -41,3 +42,8 @@ tokio = { workspace = true, features = ["test-util", "macros", "rt"] }
 # Model-based / property variants: random op sequences compared against a
 # trivial reference model (§4 "Model-based / property variants", `model.rs`).
 proptest = { workspace = true }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

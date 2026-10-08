@@ -34,7 +34,7 @@ use types_registry::infra::storage::repo::{
     CoordinationStateRepo, EntityRepo, OperationRepo, PageRequest,
 };
 
-mod common;
+use crate::common;
 use common::{allow_all, stores, test_db};
 
 const NOW: OffsetDateTime = datetime!(2026-09-11 09:15:30 UTC);

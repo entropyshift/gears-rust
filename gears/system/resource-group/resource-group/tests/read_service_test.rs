@@ -11,7 +11,7 @@
 //! that enforcer, so success means the read never consulted AuthZ. Fixtures are
 //! seeded through allow-all services against the same DB.
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 

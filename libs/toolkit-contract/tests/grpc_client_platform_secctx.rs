@@ -69,7 +69,7 @@ impl TryFromProto<stubs::RegisterResponse> for RegResult {
 }
 
 /// Hand-written stand-in for the tonic-generated stubs the macro references via
-/// `stubs_module = "crate::stubs"`. Shaped to match tonic-prost-build output:
+/// `stubs_module = "crate::grpc_client_platform_secctx::stubs"`. Shaped to match tonic-prost-build output:
 /// `<service_snake>_client::<Service>Client<Channel>` with `new` + the RPC
 /// method, plus `<Method>Request` / response messages.
 pub mod stubs {
@@ -121,7 +121,11 @@ pub trait RegApi: Send + Sync {
     ) -> Result<RegResult, RegError>;
 }
 
-#[grpc_contract(package = "reg.v1", service = "Reg", stubs_module = "crate::stubs")]
+#[grpc_contract(
+    package = "reg.v1",
+    service = "Reg",
+    stubs_module = "crate::grpc_client_platform_secctx::stubs"
+)]
 pub trait RegApiGrpc: RegApi {
     #[rpc(name = "Register")]
     async fn register(

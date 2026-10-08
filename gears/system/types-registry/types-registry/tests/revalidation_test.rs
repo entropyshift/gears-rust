@@ -1,9 +1,8 @@
 //! Commit-time revision-vector guard and bounded revalidation loop.
 
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::doc_markdown)]
-#![recursion_limit = "256"]
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 use types_registry::domain::selection::FieldSelection;

@@ -13,11 +13,10 @@
 //! `SQLite` has foreign keys disabled so dangling `parent_id`s are
 //! accepted.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod common;
+use crate::common;
 
 use account_management::domain::error::DomainError;
 use account_management::domain::tenant::TenantRepo;

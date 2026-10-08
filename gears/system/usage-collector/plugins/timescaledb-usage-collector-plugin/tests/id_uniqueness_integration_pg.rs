@@ -5,7 +5,7 @@
 //! `created_at` values persists as two rows with DISTINCT ids, so `get` and
 //! `deactivate` each address exactly one. Requires Docker.
 
-mod common;
+use crate::common;
 
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;

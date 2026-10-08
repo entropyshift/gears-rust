@@ -3,7 +3,7 @@
 //! book remap, the draft delete with a delete op per item (D-414), and the draft ownership of
 //! D-404.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_products_sdk::models::{ReferenceKind, SkuType};
 use plan_support::entry_support::policy_support;
 use plan_support::{

@@ -19,7 +19,7 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 use std::time::Duration;

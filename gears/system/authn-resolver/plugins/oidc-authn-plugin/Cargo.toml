@@ -6,6 +6,7 @@ version = "0.2.13"
 description = "OIDC Authentication Resolver Plugin"
 keywords = ["constructorfabric", "cf-gears"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "oidc_authn_plugin"
@@ -102,3 +103,8 @@ harness = false
 
 [features]
 e2e-diagnostics = []
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

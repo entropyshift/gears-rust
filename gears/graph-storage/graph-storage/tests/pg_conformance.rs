@@ -24,8 +24,8 @@
 //! runs each case in its own process, so there the bound is
 //! `--test-threads` (see the `test-graph-storage-pg` target).
 
-mod conformance;
-mod support;
+use crate::conformance;
+use crate::support;
 
 use std::sync::Arc;
 

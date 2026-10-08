@@ -7,11 +7,10 @@
 //! `coord_lease_integration_pg.rs` because the `SQLite` single-writer
 //! model does not surface those scenarios.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod common;
+use crate::common;
 
 use std::time::Duration;
 

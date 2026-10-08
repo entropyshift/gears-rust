@@ -2,7 +2,7 @@
 
 //! Integration tests for list and query operations.
 
-mod common;
+use crate::common;
 
 use axum::extract::Json;
 use common::create_service;

@@ -4,7 +4,7 @@
 //! code (`PLAN_CODE_REQUIRED`), then the rule (`PLAN_CODE_INVALID`), then the rest in D-456's order.
 //! A code stored before the rule is grandfathered: it keeps reading and is never judged again.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::infra::storage::{entity::plan as plan_entity, repo::plan_repo};
 use bss_products_sdk::models::SkuType;
 use plan_support::{Fixture, book, entry, holding, id_of, item, plan, publish, scope, setup, text};

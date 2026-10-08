@@ -64,7 +64,7 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Server;
 
-mod common;
+use crate::common;
 use common::served_gear::{PROFILE, ServedGear, served_gear};
 
 /// How long a stream assertion waits before declaring the event lost.

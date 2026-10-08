@@ -1,6 +1,6 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Execute the new chain and its concurrency boundaries on `PostgreSQL`.
-mod pg_support;
+use crate::pg_support;
 
 use bss_approval::{ApprovalError, ApproveOutcome, Engine, Policy, Store, SubmitRequest};
 use bss_products::{

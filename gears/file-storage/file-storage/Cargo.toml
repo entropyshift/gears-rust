@@ -15,6 +15,7 @@ categories = ["web-programming"]
 # Cargo's bin-autodiscovery would otherwise treat that file as its own binary
 # crate root; disable it and declare the real binary explicitly instead.
 autobins = false
+autotests = false
 
 [lib]
 name = "file_storage"
@@ -118,3 +119,8 @@ s3s = "0.14.1"
 s3s-fs = "0.14.1"
 hyper-util = { workspace = true, features = ["server-auto", "tokio"] }
 tempfile = { workspace = true }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

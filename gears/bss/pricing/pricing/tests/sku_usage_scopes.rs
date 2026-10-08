@@ -4,9 +4,9 @@
 //! a revision the tenant does not hold is the empty set, a missing grant 403, and each scope one
 //! statement whatever its size.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod book_support;
-mod entry_paging_support;
-mod plan_support;
+use crate::book_support;
+use crate::entry_paging_support;
+use crate::plan_support;
 use book_support::stored_book;
 use bss_pricing::api::sku_usage::PricingSkuUsage;
 use bss_products_sdk::sku_usage::{SkuUsageV1, UsageScope};

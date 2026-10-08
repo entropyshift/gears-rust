@@ -14,8 +14,8 @@
 //! The Postgres twin is `postgres_book_archive.rs`. Products' side of ask 58 (the SKU then
 //! retires and archives) runs in products' `tests/book_archive_e2e.rs`, where both gears run.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod book_support;
-mod plan_support;
+use crate::book_support;
+use crate::plan_support;
 use book_support::bare_revision;
 use bss_pricing::infra::{
     reference_ticker::Ticker,

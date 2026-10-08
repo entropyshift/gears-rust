@@ -4,7 +4,7 @@
 //! registration (idempotent re-apply, concurrent-replica serialization) and
 //! end-to-end chunk expiry. Requires Docker.
 
-mod common;
+use crate::common;
 
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;

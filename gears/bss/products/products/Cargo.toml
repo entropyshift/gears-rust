@@ -3,6 +3,7 @@ name = "cf-gears-bss-products"
 edition.workspace = true
 license.workspace = true
 description = "BSS Product & SKU Registry gear: the catalog authoring and publish engine"
+autotests = false
 
 [lib]
 name = "bss_products"
@@ -196,3 +197,8 @@ tempfile = { workspace = true }
 # own harness (`test_support::EventBrokerHarness`), as pricing's bound-producer suite does. A mock
 # accepted subject types the real ingest refuses (the sync of 2026-09-29).
 cf-gears-event-broker = { path = "../../../system/event-broker/event-broker", features = ["test-utils"] }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

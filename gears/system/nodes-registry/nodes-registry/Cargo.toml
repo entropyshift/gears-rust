@@ -10,6 +10,7 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "nodes_registry"
@@ -37,3 +38,8 @@ nodes_registry-sdk = { package = "cf-gears-nodes-registry-sdk", version = "0.1.3
 
 [dev-dependencies]
 toolkit-gts = { workspace = true }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

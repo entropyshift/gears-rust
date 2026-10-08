@@ -2,7 +2,7 @@
 
 //! Integration tests for edge cases, error handling, and entity content verification
 
-mod common;
+use crate::common;
 
 use common::create_service;
 use serde_json::json;

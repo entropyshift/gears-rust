@@ -3,7 +3,7 @@
 //! revision's vote progress (D-462), on the reads and on every write answer that carries the same
 //! DTO, in a fixed number of statements.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_approval::Store;
 use bss_pricing::infra::storage::{
     RepoError,

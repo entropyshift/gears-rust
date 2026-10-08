@@ -88,7 +88,7 @@
     reason = "integration tests: a setup failure IS the test failure"
 )]
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};

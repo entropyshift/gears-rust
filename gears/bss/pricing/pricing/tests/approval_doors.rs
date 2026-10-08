@@ -1,6 +1,6 @@
 //! Submission, publish changes and the approval doors, mirroring products' governance suite.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
+use crate::entry_support;
 use bss_pricing::infra::storage::{
     entity::{approval_unit, price},
     repo::{price_book_entry_repo, price_repo},

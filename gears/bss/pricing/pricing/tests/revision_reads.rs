@@ -3,7 +3,7 @@
 //! names the SKUs the plan sells, reservations settle without a per-item read, and the quorum a
 //! submit needs is on the checks and on its own door.
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::too_many_lines)]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::infra::{
     reference_ticker::Ticker,
     reference_work::{self, WallClock},

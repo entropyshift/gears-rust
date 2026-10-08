@@ -1,8 +1,8 @@
 //! `prices` approvals on native Postgres: concurrent units on one chain and the
 //! approved-start index behind the apply write.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
-mod pg_support;
+use crate::entry_support;
+use crate::pg_support;
 use bss_approval::{Store, Unit, UnitState};
 use bss_pricing::infra::storage::{
     RepoError,

@@ -14,7 +14,7 @@
 //! into the hub is no longer enough on its own, and a fixture that did so would be
 //! testing a path no consumer takes.
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 

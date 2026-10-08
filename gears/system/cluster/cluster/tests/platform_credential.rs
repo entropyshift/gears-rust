@@ -45,7 +45,7 @@ use toolkit_security::internal_auth::{
 use toolkit_security::{PeerAuthenticated, PlatformSecurityContext};
 use toolkit_transport_grpc::InternalAuthGrpcLayer;
 
-mod common;
+use crate::common;
 use common::served_gear::{PROFILE, ServedGear, Services, served_gear};
 
 // The outbound half: the credential reaches the platform-plane layer

@@ -14,8 +14,8 @@
 //! rebuilt family. The Postgres twin is `postgres_revision_scheduled_migration.rs`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod scheduled_support;
-mod schema_dump;
+use crate::scheduled_support;
+use crate::schema_dump;
 
 use bss_pricing::infra::storage::repo::{plan_item_repo, plan_revision_repo};
 use bss_pricing::module::BssPricingGear;

@@ -7,7 +7,7 @@
 //! counts use, and `GROUP BY 1` does not raise 42803 on that branch.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod pg_support;
+use crate::pg_support;
 
 use bss_products::domain::{category::NewCategory, sku::NewSku};
 use bss_products::gear::BssProductsGear;

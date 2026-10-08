@@ -1,8 +1,8 @@
 //! Frozen acceptance F07 and fresh fulfilment through the production SDK providers.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod acceptance_support;
-mod plan_support;
-mod seam_support;
+use crate::acceptance_support;
+use crate::plan_support;
+use crate::seam_support;
 use acceptance_support::AcceptanceFixture;
 use bss_pricing::domain::commercial_terms::{validate_activation_window, validate_hold_time};
 use bss_pricing_sdk::{

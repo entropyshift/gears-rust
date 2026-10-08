@@ -1,7 +1,7 @@
 //! The checks read their context as a set, and many revisions are checked in one read
 //! (phase 9 run 9.7, D-482, P-D-245).
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::too_many_lines)]
-mod plan_support;
+use crate::plan_support;
 use bss_products_sdk::ReferenceRegistryV1;
 use bss_products_sdk::models::{
     ReferenceKind, ReferenceState, ReservationReceipt, Sku, SkuType, SkuVersion,

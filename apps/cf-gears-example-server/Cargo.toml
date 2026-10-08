@@ -6,6 +6,7 @@ publish = false
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
+autotests = false
 
 [lints]
 workspace = true
@@ -148,3 +149,8 @@ tempfile = { workspace = true }
 serde-saphyr = { workspace = true }
 # `tests/schema_guard_boot.rs` seeds a legacy table into an isolated data root.
 sea-orm = { workspace = true, features = ["sqlx-sqlite"] }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

@@ -6,7 +6,7 @@
 //! tests seed the same shapes through the repositories and the approval store, as the doors of
 //! before D-467 wrote them, and read, resolve, copy, check, approve and reject them.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_approval::{ItemRef, Store, Unit, UnitState, hash::snapshot_hash};
 use bss_pricing::infra::storage::{
     RepoError,

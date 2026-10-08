@@ -6,9 +6,9 @@
 //! indexes), compared before and after and with a fresh chain.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod entry_support;
-mod pg_support;
-mod schema_dump;
+use crate::entry_support;
+use crate::pg_support;
+use crate::schema_dump;
 
 use bss_pricing::infra::reference_ticker::system_actor;
 use bss_pricing::infra::reference_work::{self, Caller, WallClock};

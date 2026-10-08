@@ -22,7 +22,7 @@ use types_registry::domain::admission::{Candidate, OperationDispatch, SubmitRequ
 use types_registry::domain::enums::{OperationItemStatus, OperationKind};
 use types_registry::domain::policy::RegistrationPolicy;
 
-mod common;
+use crate::common;
 use common::{TestStores, allow_all, stores, test_db};
 
 const NOW: OffsetDateTime = datetime!(2026-09-13 09:15:30 UTC);

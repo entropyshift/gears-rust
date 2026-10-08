@@ -239,7 +239,7 @@ base↔projection method-set check.
 * Composability is already exercised: the `api-contracts` example composes a
   generated `register_payment_api_rest_routes()` with a hand-written manual
   route chain on one router (`examples/toolkit/api-contracts/api-contracts/src/api/rest/routes.rs`),
-  verified by `tests/integration.rs`. Two generated registrations compose
+  verified by `tests/clients.rs`. Two generated registrations compose
   identically.
 * `ClientHub` key distinctness is guaranteed by `TypeKey` being
   `type_name::<T>()` (`libs/toolkit/src/client_hub.rs`), covered by its

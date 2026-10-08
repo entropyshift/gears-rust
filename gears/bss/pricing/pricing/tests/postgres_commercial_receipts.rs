@@ -1,7 +1,7 @@
 //! Commercial persistence uses the existing shared `PostgreSQL` harness.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod commercial_support;
-mod pg_support;
+use crate::commercial_support;
+use crate::pg_support;
 use bss_pricing::infra::{
     commercial_terms::wire,
     storage::repo::{acceptance_repo, commercial_command_repo, hold_repo},

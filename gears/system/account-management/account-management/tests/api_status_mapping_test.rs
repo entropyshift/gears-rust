@@ -44,11 +44,10 @@
 //!   bespoke harnesses to fault-inject those failures end-to-end is
 //!   out of scope for this sweep.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::doc_markdown)]
 
-mod common;
+use crate::common;
 
 use axum::http::StatusCode;
 use toolkit_gts::{gts_id, gts_uri};

@@ -21,7 +21,7 @@
     reason = "integration tests: a setup failure IS the test failure"
 )]
 
-mod common;
+use crate::common;
 
 use std::collections::HashMap;
 use std::sync::Arc;

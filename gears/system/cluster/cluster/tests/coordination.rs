@@ -8,7 +8,7 @@
 //! translation, and the prefix-watch polyfill diff — all over the in-process
 //! fixture with no external infrastructure.
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 use std::time::Duration;

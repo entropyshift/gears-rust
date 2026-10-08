@@ -5,9 +5,9 @@
 //! against a fresh chain; the row by its columns; and the application's doors read and rewrite it.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod entry_support;
-mod pg_support;
-mod schema_dump;
+use crate::entry_support;
+use crate::pg_support;
+use crate::schema_dump;
 
 use bss_pricing::module::BssPricingGear;
 use entry_support::{Script, app_for, request, state_on, user_of};

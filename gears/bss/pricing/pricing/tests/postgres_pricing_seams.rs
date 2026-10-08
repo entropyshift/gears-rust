@@ -1,9 +1,8 @@
 //! Shared commercial durability contracts on `PostgreSQL`. Never records goldens.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod acceptance_support;
-mod pg_support;
-mod plan_support;
-mod seam_support;
+use crate::pg_support;
+use crate::plan_support;
+use crate::seam_support;
 
 #[tokio::test]
 #[ignore = "requires the PostgreSQL contract harness"]
@@ -15,7 +14,7 @@ async fn concurrent_acceptance_has_one_durable_winner() {
     assert_eq!(result.stored_commands, 1);
     assert_eq!(result.receipt_ids[0], result.receipt_ids[1]);
 }
-mod seam_parity_support;
+use crate::seam_parity_support;
 
 #[tokio::test]
 #[ignore = "requires the PostgreSQL contract harness"]
@@ -73,8 +72,6 @@ fn crash_and_response_loss_reopen_database() {
     let dsn = plan_support::entry_support::TestDsn::of(pg.url(true));
     seam_parity_support::restart(&dsn);
 }
-
-mod schema_dump;
 
 #[tokio::test]
 #[ignore = "requires the PostgreSQL contract harness"]

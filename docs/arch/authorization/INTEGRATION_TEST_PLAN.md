@@ -89,7 +89,7 @@ cargo run --bin cf-gears-server \
 
 ```bash
 # Rust integration tests (no server/DB required)
-cargo test -p cf-gears-resource-group --test authz_integration_test --test tenant_scoping_test
+cargo test -p cf-gears-resource-group --test integration authz_integration_test:: tenant_scoping_test::
 
 # E2E tests (requires running server + PostgreSQL)
 E2E_BASE_URL=http://localhost:8087 pytest testing/e2e/suites/resource_group/ -v

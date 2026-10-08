@@ -1,9 +1,8 @@
 //! Runtime registration, declared routes and header readers must remain equal.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-#[path = "common/census.rs"]
-pub mod census;
-pub mod rest_support;
+use crate::census;
+use crate::rest_support;
 use census::Routes;
 
 fn declared_paths() -> Routes {

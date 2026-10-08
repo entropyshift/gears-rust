@@ -2,7 +2,7 @@
 //! once. The first approve answers 400 `UNIT_STALE` and records no vote. The approve of that
 //! generation applies. Modelled on `plan_items_legacy`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 
 use bss_pricing::infra::storage::repo::{price_book_entry_repo, price_repo, usage_policy_repo};
 use bss_pricing::infra::usage_policy_wire::{self, digest_text};

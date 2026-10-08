@@ -4,7 +4,7 @@
 //! however many entries a book holds; and the SKU usage port pricing fills for Products (P-D-197)
 //! adds the counts up per SKU, with plans distinct across the SKU's entries.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::api::sku_usage::PricingSkuUsage;
 use bss_pricing::infra::storage::{
     entity::{plan_revision, price_book, price_book_entry},

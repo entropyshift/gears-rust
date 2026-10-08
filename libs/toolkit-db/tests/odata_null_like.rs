@@ -25,9 +25,6 @@ use toolkit_db::secure::ScopableEntity;
 use toolkit_odata::filter::{FieldKind, FilterField, FilterNode, parse_odata_filter};
 use toolkit_security::pep_properties;
 
-#[cfg(all(feature = "integration", any(feature = "sqlite", feature = "pg")))]
-mod common;
-
 mod ent {
     use sea_orm::entity::prelude::*;
     use uuid::Uuid;

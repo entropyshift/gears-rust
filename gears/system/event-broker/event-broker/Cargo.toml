@@ -12,6 +12,7 @@ categories = ["asynchronous"]
 metadata.docs.rs.all-features = true
 
 autobins = false
+autotests = false
 
 [features]
 # Exposes `test_support` (the in-process `EventBrokerHarness` + `test_router`)
@@ -174,3 +175,8 @@ types-registry-sdk = { workspace = true, features = ["test-util"] }
 # `cf-gears-standalone-cluster-plugin` moved to [dependencies] above (also
 # needed by src/bin/server.rs); regular dependencies are available to tests
 # too, so no separate dev-dependency entry is needed here anymore.
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

@@ -20,7 +20,7 @@ use types_registry::domain::service::TypesRegistryService;
 use types_registry::infra::InMemoryGtsRepository;
 use types_registry::infra::outbox::OutboxDispatch;
 
-mod common;
+use crate::common;
 use common::stores;
 
 const CF_TYPE: &str = gts_id!("cf.core.example.type.v1~");

@@ -2,10 +2,9 @@
 //! `SQLite`, against the same files under `tests/contract/`. This tier only compares — it never
 //! re-records — so a contract that holds on one backend and drifts on the other is red here.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-#[macro_use]
-mod contract_support;
-mod pg_support;
-mod plan_support;
+use crate::contract_support;
+use crate::pg_support;
+use crate::plan_support;
 use plan_support::{
     Catalog, Fixture,
     entry_support::{app_for, state_on, user_of},

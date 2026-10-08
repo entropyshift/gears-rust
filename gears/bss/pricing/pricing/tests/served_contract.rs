@@ -10,7 +10,7 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 use toolkit::api::OpenApiInfo;
 
-pub mod rest_support;
+use crate::rest_support;
 
 /// The ops that read Products hard: a Products that cannot answer is their 503
 /// `REGISTRY_UNAVAILABLE` (the census of run 9.2, plan rev 2 M1).

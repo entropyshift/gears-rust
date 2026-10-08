@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::too_many_lines)]
 
-mod common;
+use crate::common;
 
 use github_mirror::domain::ports::github::FetchOptions;
 use github_mirror::domain::repo::{

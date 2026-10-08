@@ -5,8 +5,8 @@
 //! fresh one, and a replay applies nothing.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod pg_support;
-mod schema_dump;
+use crate::pg_support;
+use crate::schema_dump;
 
 use bss_pricing::infra::storage::repo::approval_repo;
 use bss_pricing::module::BssPricingGear;

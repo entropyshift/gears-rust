@@ -145,7 +145,7 @@ If you want a clean success instead, run the unit-level handshake tests
 from the underlying provider crate:
 
 ```sh
-cargo test -p cf-gears-rustls-corecrypto-provider --test handshake_smoke
+cargo test -p cf-gears-rustls-corecrypto-provider --test integration handshake_smoke::
 ```
 
 Those use a custom `AcceptAnyServerCert` verifier so they actually complete

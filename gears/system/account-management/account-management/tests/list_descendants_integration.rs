@@ -12,11 +12,10 @@
 //! | `root`       | `x`, `xc`, `s`, `y` | `yc`, `sc`   |
 //! | `x`          | `xc`, `y`         | `yc`         |
 //! | `s`          | `not_found`       | —            |
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::too_many_lines)]
 
-mod common;
+use crate::common;
 
 use std::collections::HashMap;
 

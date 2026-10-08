@@ -3,8 +3,8 @@
 //! A resource constraint on the caller's grant must not be applied to `kind`.
 //! `kind` is text; a `RESOURCE_ID` uuid compared with it is `text = uuid`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod pg_support;
-mod plan_support;
+use crate::pg_support;
+use crate::plan_support;
 use plan_support::{Fixture, entry_support, request};
 use serde_json::json;
 use std::sync::Arc;

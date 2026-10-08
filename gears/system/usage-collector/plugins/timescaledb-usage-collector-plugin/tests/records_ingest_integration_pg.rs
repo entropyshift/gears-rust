@@ -4,7 +4,7 @@
 //! single insert with idempotency dedup (insert / absorb / conflict),
 //! compensation persistence, and batch per-row outcomes. Requires Docker.
 
-mod common;
+use crate::common;
 
 use rust_decimal::Decimal;
 use uuid::Uuid;

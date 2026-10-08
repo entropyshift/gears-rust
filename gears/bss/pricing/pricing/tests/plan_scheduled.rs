@@ -5,7 +5,7 @@
 //! waiting revision can be withdrawn to a draft; `/resolve` serves it from its date; the counts
 //! read the stored state.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::infra::{
     reference_ticker::Ticker,
     reference_work::Clock,

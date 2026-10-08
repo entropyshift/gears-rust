@@ -2,7 +2,7 @@
 
 //! Integration tests for ready mode behavior and immediate validation
 
-mod common;
+use crate::common;
 
 use common::create_service;
 use serde_json::json;

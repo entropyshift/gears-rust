@@ -7,7 +7,6 @@
 //! envelope), DELETE idempotency on missing rows, and RFC 7231 PUT
 //! semantics (always return 200, never 201).
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(
     clippy::expect_used,
@@ -16,7 +15,7 @@
     clippy::doc_markdown
 )]
 
-mod common;
+use crate::common;
 
 use account_management::domain::metadata::registry::InheritancePolicy;
 use axum::http::StatusCode;

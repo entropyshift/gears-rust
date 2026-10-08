@@ -1,8 +1,8 @@
 //! Executable Pricing portions of atlas F02/F07/F22/F23/F24/F31.
 //! Hour scheduling, source integration and invoice roll-ups are external obligations.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
-mod seam_support;
+use crate::plan_support;
+use crate::seam_support;
 use bss_pricing::infra::usage_policy_wire as wire;
 use serde::{Deserialize, Serialize};
 

@@ -20,7 +20,7 @@
 
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
-mod pg_support;
+use crate::pg_support;
 
 use std::process::Command;
 

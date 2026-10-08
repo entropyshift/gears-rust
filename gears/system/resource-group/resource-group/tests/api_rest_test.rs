@@ -6,7 +6,7 @@
 //! Verifies HTTP-level behavior: status codes, response shapes,
 //! `OData` query parsing, and RFC 9457 error format.
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 use toolkit_gts::{gts_id, gts_uri};

@@ -9,7 +9,7 @@
 //! - Instance validation: base fields + metadata fields validated at GTS level
 //! - Topology trait constraints (`can_be_root`, `allowed_parent_types`, `allowed_membership_types`)
 
-mod common;
+use crate::common;
 
 use common::create_service;
 use serde_json::json;

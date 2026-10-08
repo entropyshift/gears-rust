@@ -1,6 +1,6 @@
 //! Draft prices through the production router: create, temporary pairs, patch and delete.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
+use crate::entry_support;
 use bss_pricing::infra::storage::repo::{price_book_entry_repo, price_repo};
 use entry_support::policy_support;
 use entry_support::{Fixture, Script};

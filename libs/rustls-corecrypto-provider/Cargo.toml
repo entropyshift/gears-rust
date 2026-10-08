@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears", "rustls", "crypto", "tls"]
 categories = ["cryptography"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "rustls_corecrypto_provider"
@@ -78,3 +79,8 @@ rcgen = { workspace = true }
 # key bytes) is a transitive dep, not a feature, so we don't list it here.
 rsa = { version = "0.9", default-features = false, features = ["std"] }
 sha2 = { version = "0.10", default-features = false }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

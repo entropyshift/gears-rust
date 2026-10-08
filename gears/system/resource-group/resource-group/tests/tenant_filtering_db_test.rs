@@ -9,7 +9,7 @@
 //! Two tenants each create groups; listing groups through the `AuthZ`-scoped
 //! `GroupService` returns only the requesting tenant's data.
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 use toolkit_gts::GTS_ID_PREFIX;

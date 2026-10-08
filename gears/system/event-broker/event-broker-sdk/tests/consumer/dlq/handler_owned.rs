@@ -11,7 +11,7 @@ use event_broker_sdk::{
 };
 use uuid::Uuid;
 
-use crate::consumer::common::{event_type, publish_json, topic, topic_fixture, wait_until};
+use super::super::common::{event_type, publish_json, topic, topic_fixture, wait_until};
 
 const TOPIC: &str = gts_id!("cf.core.events.topic.v1~example.mock.showcase.dlq.v1");
 const EVENT_TYPE: &str = gts_id!("cf.core.events.event.v1~example.mock.showcase.dlq.v1~");

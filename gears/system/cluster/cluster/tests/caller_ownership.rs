@@ -28,7 +28,7 @@ use toolkit_security::internal_auth::{
     InternalAuthNError, InternalAuthenticator, PlatformIdentity,
 };
 
-mod common;
+use crate::common;
 use common::served_gear::{PROFILE, ServedGear, served_gear};
 
 /// The lock's TTL for every acquisition here: long enough that nothing lapses

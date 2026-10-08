@@ -23,7 +23,7 @@ use types_registry::domain::registry_service::{EntityKey, RegistryService};
 use types_registry::infra::outbox::{AdmissionHandler, OutboxDispatch};
 use types_registry::infra::storage::repo::OperationRepo;
 
-mod common;
+use crate::common;
 use common::{await_delivery, metrics, stores, test_db_with_outbox};
 
 const NOW: OffsetDateTime = datetime!(2026-09-14 12:00:00 UTC);

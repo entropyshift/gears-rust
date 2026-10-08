@@ -25,7 +25,6 @@
 //! MySQL container. The behaviour is held by code review and by the
 //! gear-level docstring on the m0006 source.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::doc_markdown)]
 

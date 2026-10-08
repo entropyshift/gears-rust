@@ -9,9 +9,8 @@
 //! mapping included -- with the platform's authentication layer stood in for
 //! by an injected `SecurityContext`, which is what that layer produces.
 
-#[allow(dead_code)]
-mod conformance;
-mod support;
+use crate::conformance;
+use crate::support;
 
 use std::sync::Arc;
 

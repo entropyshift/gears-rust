@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears", "cf-gears-toolkit"]
 categories = ["authentication"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "toolkit_security"
@@ -45,3 +46,8 @@ trybuild = { workspace = true }
 # "test-util" enables `start_paused`, which lets the backend-timeout tests run
 # on virtual time instead of spending the real deadline waiting.
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "time", "test-util"] }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

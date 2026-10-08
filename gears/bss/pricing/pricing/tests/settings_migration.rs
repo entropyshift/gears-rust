@@ -11,8 +11,8 @@
 //! twin is `postgres_settings_migration.rs`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod entry_support;
-mod schema_dump;
+use crate::entry_support;
+use crate::schema_dump;
 
 use bss_pricing::infra::storage::entity::price_book;
 use bss_pricing::infra::storage::repo::book_repo;

@@ -11,7 +11,7 @@
 
 use sea_orm::Database;
 
-mod schema_dump;
+use crate::schema_dump;
 
 use schema_dump::{migrate_and_dump_sqlite, normalise_sql, tables_in};
 
