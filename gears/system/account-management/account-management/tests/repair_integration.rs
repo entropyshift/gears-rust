@@ -10,11 +10,10 @@
 //! bulk extensions, `SERIALIZABLE` retry, single-flight gate sharing)
 //! actually produces the post-repair DB state the planner promised.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 

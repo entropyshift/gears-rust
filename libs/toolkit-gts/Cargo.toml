@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears", "cf-gears-toolkit"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "toolkit_gts"
@@ -30,3 +31,8 @@ inventory = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 schemars = { workspace = true, features = ["derive"] }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

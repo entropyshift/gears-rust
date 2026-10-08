@@ -48,7 +48,7 @@
 //! cargo nextest run -p cf-gears-resource-group --features integration --test pg_smoke_test
 //! ```
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 

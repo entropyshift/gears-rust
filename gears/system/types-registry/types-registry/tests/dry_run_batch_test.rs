@@ -29,7 +29,7 @@ use types_registry::infra::storage::entity::{
     type_schema_revision, version_family,
 };
 
-mod common;
+use crate::common;
 use common::{TestStores, allow_all, stores, test_db};
 
 const NOW: OffsetDateTime = datetime!(2026-09-13 09:15:30 UTC);

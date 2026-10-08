@@ -7,7 +7,7 @@
 //! `category_id`'s nullability — and every row must survive.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod pg_support;
+use crate::pg_support;
 
 use bss_products::gear::BssProductsGear;
 use pg_support::Pg;

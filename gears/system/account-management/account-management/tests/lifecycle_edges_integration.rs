@@ -8,11 +8,10 @@
 //! deferred-child case seeds one root + one child. `SQLite` has foreign
 //! keys disabled so dangling `parent_id`s are accepted.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod common;
+use crate::common;
 
 use account_management::domain::tenant::TenantRepo;
 use account_management::domain::tenant::retention::HardDeleteEligibility;

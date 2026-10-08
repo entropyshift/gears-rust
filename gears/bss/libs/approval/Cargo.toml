@@ -3,6 +3,7 @@ name = "cf-gears-bss-approval"
 edition.workspace = true
 license.workspace = true
 description = "One approval-unit shape for the BSS gears: model, generation-aware quorum and SoD rules, content fingerprint, DDL template, Store and ApprovalSubject over toolkit-db runners, and the Engine that drives them"
+autotests = false
 
 [lib]
 name = "bss_approval"
@@ -29,3 +30,8 @@ time = { workspace = true, features = ["macros"] }     # datetime!() in tests
 
 [lints]
 workspace = true
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

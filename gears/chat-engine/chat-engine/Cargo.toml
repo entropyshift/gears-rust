@@ -10,6 +10,7 @@ rust-version.workspace = true
 readme = "README.md"
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["artificial-intelligence"]
+autotests = false
 
 [package.metadata.docs.rs]
 all-features = true
@@ -87,3 +88,8 @@ tower = { workspace = true, features = ["util"] }
 # The event is emitted synchronously on the test thread, so this crate's
 # thread-local capture is sound here (it is not across `tokio::spawn`).
 tracing-test = { workspace = true, features = ["no-env-filter"] }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

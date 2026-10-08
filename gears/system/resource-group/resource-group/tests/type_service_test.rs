@@ -7,7 +7,7 @@
 //! Covers TC-TYP-01..16, TC-META-01..11, TC-GTS-01..15.
 //! Overlapping TC-META/TC-GTS cases are implemented once with a comment noting both IDs.
 
-mod common;
+use crate::common;
 
 use toolkit_gts::GTS_ID_PREFIX;
 

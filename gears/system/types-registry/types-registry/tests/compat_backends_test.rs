@@ -1,7 +1,7 @@
 #![cfg(feature = "integration")]
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::doc_markdown)]
 
-mod common;
+use crate::common;
 
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears", "cf-gears-toolkit"]
 categories = ["rust-patterns"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "toolkit_canonical_errors"
@@ -39,3 +40,8 @@ toolkit-gts = { workspace = true }
 
 [dev-dependencies]
 trybuild = { workspace = true }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

@@ -9,7 +9,7 @@
 //! delete with reference checks, force cascade, hierarchy depth traversal,
 //! and group metadata (barrier) storage and retrieval.
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

@@ -10,7 +10,7 @@
 //! upgraded database equals a fresh one; a replay applies nothing.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod pg_support;
+use crate::pg_support;
 
 use bss_products::gear::BssProductsGear;
 use bss_products::infra::storage::repo;

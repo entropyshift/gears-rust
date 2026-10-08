@@ -28,7 +28,7 @@ use types_registry::domain::enums as domain_enums;
 use types_registry::domain::policy::RegistrationPolicy;
 use types_registry::infra::storage::entity::entity;
 
-mod common;
+use crate::common;
 use common::{allow_all, stores, test_db};
 
 const NOW: OffsetDateTime = datetime!(2026-09-08 09:15:30 UTC);

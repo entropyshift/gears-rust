@@ -1,9 +1,9 @@
-//! Every integration test of this crate in one binary, so the crate's tests
-//! compile and link once instead of once per file. Each file stays where it
-//! is and is loaded as a module (`autotests = false` in Cargo.toml). A new
-//! test file needs a `#[path]` line here; `every_test_file_is_loaded` fails
-//! until it has one. Helpers that several files use are declared here once,
-//! and the files `use crate::<helper>`.
+//! Every integration test of this crate in one binary, so they compile and
+//! link once instead of once per file. Each file stays where it is and is
+//! loaded as a module (`autotests = false` in Cargo.toml). A new test file
+//! needs a `#[path]` line here; `tools/scripts/check_test_layout.py` fails
+//! without one. Helpers that several files use are declared here once, and
+//! the files `use crate::<helper>`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
 mod acceptance_support;
@@ -208,27 +208,3 @@ mod temporary_dates;
 mod unit_submit_note_migration;
 #[path = "usage_rating_policy.rs"]
 mod usage_rating_policy;
-
-/// With `autotests = false`, a file in `tests/` that has no line above is never
-/// compiled and never run. This test fails instead.
-#[test]
-fn every_test_file_is_loaded() {
-    let root = include_str!("integration.rs");
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
-    let mut missing: Vec<String> = std::fs::read_dir(dir)
-        .expect("tests/ is readable")
-        .filter_map(|e| e.ok()?.file_name().into_string().ok())
-        .filter(|n| {
-            std::path::Path::new(n)
-                .extension()
-                .is_some_and(|e| e == "rs")
-        })
-        .filter(|n| n != "integration.rs")
-        .filter(|n| !root.contains(&format!("#[path = \"{n}\"]")))
-        .collect();
-    missing.sort();
-    assert!(
-        missing.is_empty(),
-        "add to tests/integration.rs: {missing:?}"
-    );
-}

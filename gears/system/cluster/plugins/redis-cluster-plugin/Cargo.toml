@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "redis_cluster_plugin"
@@ -166,26 +167,9 @@ cf-gears-standalone-cluster-plugin = { path = "../standalone-cluster-plugin" }
 # no flag then skips *building* these binaries entirely, rather than building them
 # and skipping the test functions inside — which is what keeps a default test run
 # free of both Docker and the testcontainers dependency tree.
-[[test]]
-name = "conformance"
-required-features = ["integration"]
 
+# Every tests/*.rs in one binary; see tests/integration.rs.
 [[test]]
-name = "cache_integration"
-required-features = ["integration"]
-
-[[test]]
-name = "lock_integration"
-required-features = ["integration"]
-
-[[test]]
-name = "watch_integration"
-required-features = ["integration"]
-
-[[test]]
-name = "lifecycle_integration"
-required-features = ["integration"]
-
-[[test]]
-name = "redis_specific"
+name = "integration"
+path = "tests/integration.rs"
 required-features = ["integration"]

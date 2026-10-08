@@ -3,7 +3,7 @@
 //! migration's `_tests.rs` on SQLite.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod pg_support;
+use crate::pg_support;
 
 use bss_products::gear::BssProductsGear;
 use pg_support::Pg;

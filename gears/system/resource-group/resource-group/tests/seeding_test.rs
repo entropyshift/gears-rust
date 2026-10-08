@@ -9,7 +9,7 @@
 //! to nil tenant in the AllowAll mock. Therefore, seeding tests create groups
 //! with nil tenant to ensure visibility through anonymous-scoped queries.
 
-mod common;
+use crate::common;
 
 use toolkit_gts::GTS_ID_PREFIX;
 

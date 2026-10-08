@@ -48,7 +48,7 @@ mod stubs {
 }
 
 #[derive(Debug, Clone, PartialEq, ProtoBridge)]
-#[proto_bridge(stub = "crate::stubs::ChargeRequest")]
+#[proto_bridge(stub = "crate::proto_bridge_derive::stubs::ChargeRequest")]
 pub struct ChargeRequest {
     pub amount_cents: i64,
     pub currency: String,
@@ -56,7 +56,7 @@ pub struct ChargeRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, ProtoBridge)]
-#[proto_bridge(stub = "crate::stubs::ChargeResponse")]
+#[proto_bridge(stub = "crate::proto_bridge_derive::stubs::ChargeResponse")]
 pub struct ChargeResponse {
     #[proto_bridge(via_string)]
     pub payment_id: i64,
@@ -64,14 +64,14 @@ pub struct ChargeResponse {
 }
 
 #[derive(Debug, Clone, PartialEq, Default, ProtoBridge)]
-#[proto_bridge(stub = "crate::stubs::ListFilter")]
+#[proto_bridge(stub = "crate::proto_bridge_derive::stubs::ListFilter")]
 pub struct ListFilter {
     pub status: Option<PaymentStatus>,
     pub note: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ProtoBridge)]
-#[proto_bridge(stub = "crate::stubs::PaymentStatus")]
+#[proto_bridge(stub = "crate::proto_bridge_derive::stubs::PaymentStatus")]
 pub enum PaymentStatus {
     #[default]
     Pending,
@@ -182,7 +182,7 @@ mod stubs_generic {
 /// `Tag` is a phantom-only marker — it never crosses the wire. The derive
 /// must propagate `<T>` to all four impl blocks AND skip `_phantom`.
 #[derive(Debug, Clone, PartialEq, ProtoBridge)]
-#[proto_bridge(stub = "crate::stubs_generic::GenericReq")]
+#[proto_bridge(stub = "crate::proto_bridge_derive::stubs_generic::GenericReq")]
 pub struct GenericReq<T> {
     pub amount_cents: i64,
     #[proto_bridge(skip)]
@@ -225,7 +225,7 @@ mod stubs_uuid {
 }
 
 #[derive(Debug, Clone, PartialEq, ProtoBridge)]
-#[proto_bridge(stub = "crate::stubs_uuid::UserMsg")]
+#[proto_bridge(stub = "crate::proto_bridge_derive::stubs_uuid::UserMsg")]
 pub struct UserMsg {
     #[proto_bridge(via_string)]
     pub id: uuid::Uuid,

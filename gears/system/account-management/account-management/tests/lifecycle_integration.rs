@@ -21,11 +21,10 @@
 //! * `compensate_provisioning` deletes the `Provisioning` row
 //!   without touching closure (no closure ever existed).
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod common;
+use crate::common;
 
 use std::time::Duration;
 

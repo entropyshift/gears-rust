@@ -22,7 +22,7 @@ use cluster_sdk::cache::{PutRequest, Ttl};
 use cluster_sdk::grpc::stubs;
 use cluster_sdk::{ClusterClient, ClusterError};
 
-mod common;
+use crate::common;
 use common::served_gear::{PROFILE, ServedGear, Services, served_gear};
 
 struct Fixture {

@@ -10,7 +10,7 @@ use oidc_authn_plugin::claim_mapper;
 use oidc_authn_plugin::config::S2sConfig;
 use secrecy::SecretString;
 
-pub mod common;
+use crate::common;
 
 fn make_request(client_id: &str, client_secret: &str) -> ClientCredentialsRequest {
     ClientCredentialsRequest {

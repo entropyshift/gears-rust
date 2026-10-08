@@ -280,6 +280,11 @@ jobs:
       - name: Validate gear naming conventions
         run: python3 tools/scripts/validate_gear_names.py
 
+      # A crate with tests/integration.rs builds only that file, so a test
+      # file it does not load would never run.
+      - name: Check every test file is loaded
+        run: python3 tools/scripts/check_test_layout.py
+
       - name: Validate PR-review rule set
         run: python3 tools/scripts/toolkit-pr-review/lint.py
 

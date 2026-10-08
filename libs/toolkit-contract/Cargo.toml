@@ -7,6 +7,7 @@ authors.workspace = true
 repository.workspace = true
 description = "ToolKit contract IR, binding metadata, validation, policy stack, and proc-macro re-exports"
 rust-version.workspace = true
+autotests = false
 
 [package.metadata.docs.rs]
 all-features = true
@@ -139,3 +140,8 @@ tracing-subscriber.workspace = true
 tracing-opentelemetry.workspace = true
 opentelemetry.workspace = true
 opentelemetry_sdk.workspace = true
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

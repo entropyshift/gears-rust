@@ -37,7 +37,7 @@
 //! Findings inventory and how to repeat this audit on another module:
 //! `docs/db-behavior-audit.md`.
 
-mod common;
+use crate::common;
 
 use std::collections::BTreeMap;
 use std::sync::Arc;

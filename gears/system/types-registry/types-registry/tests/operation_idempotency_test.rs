@@ -34,7 +34,7 @@ use types_registry::infra::storage::entity::enums as storage_enums;
 use types_registry::infra::storage::entity::{entity, operation};
 use types_registry::infra::storage::repo::OperationRepo;
 
-mod common;
+use crate::common;
 use common::{TestDir, allow_all, stores, test_db, test_db_file};
 use types_registry::domain::ports::metrics::AdmissionMetrics;
 

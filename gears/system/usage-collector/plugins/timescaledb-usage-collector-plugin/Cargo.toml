@@ -9,6 +9,7 @@ repository.workspace = true
 rust-version.workspace = true
 keywords = ["constructorfabric", "cf-gears"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "timescaledb_usage_collector_plugin"
@@ -77,3 +78,8 @@ test-containers = { workspace = true }
 # In-memory metric reader for the metrics-recording unit tests; the `testing`
 # feature gates `InMemoryMetricExporter`.
 opentelemetry_sdk = { workspace = true, features = ["testing"] }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

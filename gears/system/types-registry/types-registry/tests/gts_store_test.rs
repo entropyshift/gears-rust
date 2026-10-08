@@ -33,7 +33,7 @@ use types_registry::domain::ports::{NewEntity, snapshot_read};
 use types_registry::infra::storage::entity::{type_schema, type_schema_revision};
 use types_registry::infra::storage::repo::{DependencyRepo, EntityRepo, VersionFamilyRepo};
 
-mod common;
+use crate::common;
 use common::{
     allow_all, seed_current_type_schema, seed_operation_item, seed_type_schema_revision, stores,
     test_db,

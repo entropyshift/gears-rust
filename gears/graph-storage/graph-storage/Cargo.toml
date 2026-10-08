@@ -11,6 +11,7 @@ description = "Graph Storage gear: typed, multi-tenant knowledge graph with sear
 keywords = ["constructorfabric", "cf-gears", "graph", "knowledge-graph"]
 categories = ["database"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "graph_storage"
@@ -98,3 +99,8 @@ toolkit-db = { workspace = true, features = ["pg", "pgq"] }
 # Drives the gear's own axum router in-process: the REST cases send real
 # requests through it rather than calling the handlers as functions.
 tower = { workspace = true }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

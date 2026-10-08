@@ -6,7 +6,7 @@
 //! Tests the MembershipService domain logic: add/remove lifecycle,
 //! allowed_membership_types validation, tenant compatibility, and duplicate detection.
 
-mod common;
+use crate::common;
 
 use common::{create_root_type, make_ctx, make_group_service, make_membership_service, test_db};
 use toolkit_odata::ODataQuery;

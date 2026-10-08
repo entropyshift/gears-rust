@@ -40,7 +40,7 @@
 //! `tenant_id`, RFC-9457 problem shape on the negative paths) for the same
 //! set of rules.
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 

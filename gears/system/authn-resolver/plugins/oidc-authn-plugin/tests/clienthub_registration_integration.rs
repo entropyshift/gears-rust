@@ -13,7 +13,7 @@ use secrecy::ExposeSecret;
 use toolkit::client_hub::{ClientHub, ClientScope};
 use uuid::Uuid;
 
-pub mod common;
+use crate::common;
 
 fn make_plugin(trusted_issuer: String) -> OidcAuthNPlugin {
     let issuer_trust =

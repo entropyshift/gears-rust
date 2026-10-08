@@ -7,7 +7,7 @@
 //! API only (`connect_db` -> `Db::lock` / `try_lock`), which routes through the dedicated
 //! single-connection lock session.
 
-mod common;
+use crate::common;
 
 use std::time::Duration;
 

@@ -49,20 +49,20 @@ mod stubs {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, ProtoBridge)]
-#[proto_bridge(stub = "crate::stubs::Deep")]
+#[proto_bridge(stub = "crate::proto_bridge_message::stubs::Deep")]
 struct Deep {
     value: i64,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, ProtoBridge)]
-#[proto_bridge(stub = "crate::stubs::Inner")]
+#[proto_bridge(stub = "crate::proto_bridge_message::stubs::Inner")]
 struct Inner {
     #[proto_bridge(message)]
     deep: Deep,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, ProtoBridge)]
-#[proto_bridge(stub = "crate::stubs::Outer")]
+#[proto_bridge(stub = "crate::proto_bridge_message::stubs::Outer")]
 struct Outer {
     #[proto_bridge(message)]
     inner: Inner,

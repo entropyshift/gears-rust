@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears", "cf-gears-toolkit"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "toolkit_auth"
@@ -54,3 +55,8 @@ httpmock = { workspace = true }
 # `with_otel_metrics*` builder methods are available (see examples/oauth2_metrics.rs).
 # Dev-only: a plain `cargo build` of the library does not pull this in.
 toolkit-http = { workspace = true, features = ["otel"] }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

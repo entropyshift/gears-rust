@@ -3,6 +3,7 @@ name = "cf-gears-bss-coord"
 edition.workspace = true
 license.workspace = true
 description = "Shared BSS coordination primitives — a DB-backed distributed lease (single-active job/run guard), ported from the account-management lease pattern. Works entirely within the existing SecureORM API (unscoped `coord_leases` table via `AccessScope::allow_all()`); no toolkit changes."
+autotests = false
 
 [lib]
 name = "coord"
@@ -57,3 +58,8 @@ tokio = { workspace = true, features = [
 ] }
 testcontainers-modules = { workspace = true }
 test-containers = { workspace = true }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

@@ -2,7 +2,7 @@
 
 //! Integration tests for type-instance validation
 
-mod common;
+use crate::common;
 
 use common::create_service;
 use serde_json::json;

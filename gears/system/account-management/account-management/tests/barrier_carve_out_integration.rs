@@ -48,7 +48,6 @@
 //! Respect-visible set is `{root, x, xc}` — exactly the managed
 //! subtree of root.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(
     clippy::expect_used,
@@ -57,7 +56,7 @@
     clippy::doc_markdown
 )]
 
-mod common;
+use crate::common;
 
 use account_management::domain::error::DomainError;
 use toolkit_odata::ODataQuery;

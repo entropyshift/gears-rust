@@ -34,7 +34,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::too_many_lines)]
 
-mod common;
+use crate::common;
 
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;

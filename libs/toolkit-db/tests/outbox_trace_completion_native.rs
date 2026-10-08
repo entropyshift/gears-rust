@@ -26,7 +26,7 @@
 //! batch, so the first-acked / second-retried split is a single, race-free
 //! handler decision rather than a scheduling accident.
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};

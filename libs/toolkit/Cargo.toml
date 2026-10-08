@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears", "cf-gears-toolkit"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "toolkit"
@@ -218,3 +219,8 @@ serial_test = { workspace = true }
 toolkit-db = { workspace = true, features = ["sqlite"] }
 tracing-subscriber = { workspace = true }
 tracing-test = { workspace = true, features = ["no-env-filter"] }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

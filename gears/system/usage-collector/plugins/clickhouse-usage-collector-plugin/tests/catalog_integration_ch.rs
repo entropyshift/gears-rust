@@ -19,7 +19,7 @@
 //!
 //! Requires Docker for `ClickHouse`.
 
-mod common;
+use crate::common;
 
 use rust_decimal::Decimal;
 use toolkit_odata::ast::{CompareOperator, Expr, Value};

@@ -12,9 +12,8 @@
 /// The suite's fixtures, reused here: the same ontology and the same node
 /// and edge helpers, so a service case and a store case describe the same
 /// graph. Only part of it is used from this binary, hence the allowance.
-#[allow(dead_code)]
-mod conformance;
-mod support;
+use crate::conformance;
+use crate::support;
 
 use std::sync::Arc;
 

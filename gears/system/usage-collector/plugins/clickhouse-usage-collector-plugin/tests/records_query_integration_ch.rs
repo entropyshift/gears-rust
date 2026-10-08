@@ -16,7 +16,7 @@
 //! `(created_at, id)` order is fully observable.
 //! Requires Docker.
 
-mod common;
+use crate::common;
 
 use std::collections::BTreeMap;
 

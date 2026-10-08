@@ -36,11 +36,10 @@
 //! dangling `parent_id` is accepted. The `Postgres`-only leaf-first
 //! FK-guard scenario stays in the `*_pg.rs` companion suite.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod common;
+use crate::common;
 
 use std::time::Duration;
 

@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "cluster_sdk"
@@ -160,3 +161,7 @@ tokio = { workspace = true, features = ["test-util"] }
 # plugin's `scoped_warn_capture`.
 tracing-subscriber = { workspace = true }
 
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

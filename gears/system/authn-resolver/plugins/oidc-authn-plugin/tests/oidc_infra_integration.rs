@@ -8,7 +8,7 @@ use oidc_authn_plugin::error::AuthNError;
 use oidc_authn_plugin::jwks::{JwksFetcher, JwksFetcherConfig, JwksFetcherDeps};
 use oidc_authn_plugin::oidc::OidcDiscovery;
 
-pub mod common;
+use crate::common;
 
 const TEST_ISSUER: &str = "https://oidc.example.com/realms/platform";
 

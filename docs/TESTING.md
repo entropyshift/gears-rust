@@ -245,6 +245,25 @@ re-points under CI with nothing in the diff, which is the drift this crate exist
 
 ---
 
+### 4.5 One test binary per crate
+
+Cargo builds every `tests/*.rs` file as its own binary, and each one links the
+whole crate and its dependencies. A crate with more than one test file builds
+them as one binary instead:
+
+- `tests/integration.rs` loads each test file as a module
+  (`#[path = "foo.rs"] mod foo;`), and `Cargo.toml` sets `autotests = false`.
+- A helper module that several files use (`tests/common/mod.rs`) is declared
+  once there; the files `use crate::common;`.
+- Run one file's tests with a name filter:
+  `cargo nextest run -p <crate> -E 'test(/^foo::/)'`, or
+  `cargo test -p <crate> --test integration foo::`.
+
+Add a new test file to `tests/integration.rs`. CI runs
+`tools/scripts/check_test_layout.py`, which fails for a file that is not loaded.
+A file that needs a crate root of its own stays a separate `[[test]]` in
+`Cargo.toml`.
+
 ## 5. End-to-End (E2E) Tests
 
 E2E tests exercise the full HTTP surface of the gears testing server using Python (pytest +

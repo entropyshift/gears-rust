@@ -2,7 +2,8 @@
 
 //! Tests for configuration precedence and merge behavior.
 
-mod common;
+#[cfg(feature = "sqlite")]
+use crate::common;
 
 use figment::{Figment, providers::Serialized};
 use std::collections::HashMap;

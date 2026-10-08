@@ -18,7 +18,7 @@ use toolkit_db::outbox::{
 };
 use uuid::Uuid;
 
-use crate::consumer::common::wait_until;
+use super::super::common::wait_until;
 
 const DLQ_QUEUE: &str = "showcase-consumer-dlq";
 const DLQ_PARTITIONS: u32 = 4;

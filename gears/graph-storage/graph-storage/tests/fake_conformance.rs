@@ -6,7 +6,7 @@
 //! which is the point: if an obligation only the `PostgreSQL` store can satisfy
 //! sneaks into the contract, it fails here first.
 
-mod conformance;
+use crate::conformance;
 
 use graph_storage::infra::fake_store::FakeGraphStore;
 use graph_storage_sdk::models::ProjectionRequest;

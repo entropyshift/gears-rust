@@ -22,7 +22,7 @@ use types_registry::domain::registry_service::{EntityKey, RegistryService};
 use types_registry::infra::outbox::AdmissionHandler;
 use types_registry::infra::storage::entity::operation_item;
 
-mod common;
+use crate::common;
 
 const NOW: OffsetDateTime = datetime!(2026-09-16 12:00:00 UTC);
 const BASE: &str = gts_id!("cf.core.missingdeps.base.v1~");

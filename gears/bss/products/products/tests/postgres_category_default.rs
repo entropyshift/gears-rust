@@ -2,7 +2,7 @@
 //! The tenant's one default category on `PostgreSQL` (P-D-218): the partial unique index
 //! `uq_products_category_default` refusing a second default is `CATEGORY_DEFAULT_TAKEN` from both
 //! writes, never a driver failure the doors would answer as a 500.
-mod pg_support;
+use crate::pg_support;
 
 use bss_products::{
     domain::category::{CategoryPatch, NewCategory},

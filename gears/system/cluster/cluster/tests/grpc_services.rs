@@ -23,7 +23,7 @@ use tokio_stream::StreamExt as _;
 use tonic::transport::Channel;
 use toolkit_transport_grpc::InternalAuthInterceptor;
 
-mod common;
+use crate::common;
 use common::served_gear::{ServedGear, served_gear};
 
 /// The per-call deadline the watch tests carry on their stream.

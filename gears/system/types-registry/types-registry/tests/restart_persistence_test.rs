@@ -34,7 +34,7 @@ use types_registry::infra::storage::entity::{
     type_schema_revision, version_family,
 };
 
-mod common;
+use crate::common;
 use common::{TestDir, allow_all, doc, stores, test_db, test_db_file};
 
 const BOOT: OffsetDateTime = datetime!(2026-08-18 09:15:30 UTC);

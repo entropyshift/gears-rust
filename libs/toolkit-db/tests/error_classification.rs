@@ -21,7 +21,7 @@
 //!
 //! Added during the `SeaORM` 1.1 -> 2.0 / sqlx 0.8 -> 0.9 upgrade (#4543).
 
-mod common;
+use crate::common;
 
 use anyhow::Result;
 use sea_orm::Set;

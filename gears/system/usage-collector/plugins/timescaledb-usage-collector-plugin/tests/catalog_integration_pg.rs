@@ -3,7 +3,7 @@
 //! `TimescaleDB`-backed integration tests for `PgCatalogStore`
 //! (create / get / delete / list). Requires Docker.
 
-mod common;
+use crate::common;
 
 use uuid::Uuid;
 

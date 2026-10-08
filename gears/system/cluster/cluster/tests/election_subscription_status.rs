@@ -20,7 +20,7 @@
 use cluster_sdk::grpc::stubs;
 use cluster_sdk::{ClusterError, LeaseContext, from_lease_status, from_status};
 
-mod common;
+use crate::common;
 use common::served_gear::{PROFILE, Services, served_gear};
 
 /// Asks a real gear to `await_change` on an election it never issued, and hands

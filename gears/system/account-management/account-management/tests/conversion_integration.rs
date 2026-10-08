@@ -31,11 +31,10 @@
 //! (the fake's `apply_conversion_approval` returns `AlreadyResolved` on
 //! status drift), and the production SQL impl wires the same fence.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::too_many_lines)]
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 use std::time::Duration as StdDuration;

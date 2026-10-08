@@ -5,7 +5,7 @@
 //! next successful round-trip re-arms it, on one metric series. Requires
 //! Docker.
 
-mod common;
+use crate::common;
 
 use std::sync::Arc;
 

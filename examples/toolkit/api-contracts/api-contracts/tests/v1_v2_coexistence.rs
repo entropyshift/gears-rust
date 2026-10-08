@@ -14,7 +14,6 @@
 //!    caller**, so one tenant cannot replay another tenant's key.
 
 #![allow(clippy::unwrap_used)]
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 
 use std::collections::HashSet;

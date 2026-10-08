@@ -2,8 +2,8 @@
 //! read from `information_schema` and `pg_constraint` by the guard.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod guard_support;
-mod pg_support;
+use crate::guard_support;
+use crate::pg_support;
 
 use bss_products::gear::BssProductsGear;
 use guard_support::{

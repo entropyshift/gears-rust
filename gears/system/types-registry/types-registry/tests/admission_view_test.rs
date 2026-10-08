@@ -26,7 +26,7 @@ use types_registry::domain::ports::{
     DependencyStore, EntityEdge, ReverseImpact, Stores, snapshot_read,
 };
 
-mod common;
+use crate::common;
 use common::{allow_all, stores, test_db};
 
 const NOW: OffsetDateTime = datetime!(2026-09-13 09:15:30 UTC);

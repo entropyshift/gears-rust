@@ -743,7 +743,7 @@ test-pg: install-tools
 test-pgq: install-tools
 	$(call print_target_banner)
 	cargo nextest run -p cf-gears-toolkit-db --features pgq,integration \
-		-E 'kind(lib) | binary(mod) | binary(ui)'
+		-E 'kind(lib) | (binary(integration) & test(/^(suites|ui)::/))'
 
 ## Run the graph-storage gear's database-free suites: unit tests, the
 ## in-memory conformance lane, the domain-service and REST lanes. The
@@ -772,7 +772,7 @@ GRAPH_PG_TEST_THREADS ?= 2
 test-graph-storage-pg: install-tools
 	$(call print_target_banner)
 	GEARS_TEST_PG_GRAPH_REQUIRED=1 cargo nextest run -p cf-gears-graph-storage \
-		--test pg_conformance --test-threads=$(GRAPH_PG_TEST_THREADS)
+		-E 'binary(integration) & test(/^pg_conformance::/)' --test-threads=$(GRAPH_PG_TEST_THREADS)
 
 ## Run MySQL integration tests
 test-mysql: install-tools
@@ -812,7 +812,7 @@ test-usage-collector-ch: install-tools
 test-types-registry-db: install-tools
 	$(call print_target_banner)
 	cargo nextest run -p cf-gears-types-registry --features integration \
-	  -E 'binary(/_backends_test$$/)'
+	  -E 'binary(integration) & test(/_backends_test::/)'
 
 ## Run the Postgres cluster plugin's conformance (Layer 2) and Layer 3
 ## integration suites (Docker required;
@@ -946,7 +946,7 @@ test-pricing-pg: install-tools
 ## Same `--run-ignored ignored-only` shape as `test-pricing-pg` above, and the
 ## same reason: the gate is `#[ignore]` rather than a feature.
 test-coord-pg: install-tools
-	cargo nextest run -p cf-gears-bss-coord --run-ignored ignored-only -E 'binary(/^postgres_/)'
+	cargo nextest run -p cf-gears-bss-coord --run-ignored ignored-only -E 'binary(integration) & test(/^postgres_/)'
 
 ## Run bss-products' Postgres tier (Docker required; testcontainers).
 ##
@@ -970,7 +970,7 @@ test-coord-pg: install-tools
 ## the one place a Postgres-only defect surfaces must report every failure it
 ## found, not the first.
 test-products-pg: install-tools
-	cargo nextest run -p cf-gears-bss-products --run-ignored ignored-only -E 'binary(/^postgres_/)' --no-fail-fast
+	cargo nextest run -p cf-gears-bss-products --run-ignored ignored-only -E 'binary(integration) & test(/^postgres_/)' --no-fail-fast
 
 ## Run the Redis cluster plugin's conformance (Layer 2) and Layer 3 integration
 ## suites (Docker required; each spins up its own redis container via

@@ -6,7 +6,7 @@
 //! and pushed-down aggregation (SUM nets compensation, COUNT, GROUP BY
 //! resource/metadata, active-only). Requires Docker.
 
-mod common;
+use crate::common;
 
 use std::collections::BTreeMap;
 use std::str::FromStr;

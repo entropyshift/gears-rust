@@ -44,11 +44,10 @@
 //!  --test integrity_integration_pg`.
 
 #![cfg(feature = "integration")]
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod common;
+use crate::common;
 
 use account_management::domain::tenant::TenantRepo;
 use account_management::domain::tenant::integrity::IntegrityCategory;

@@ -26,7 +26,7 @@ use types_registry::domain::policy::RegistrationPolicy;
 use types_registry::infra::storage::entity::dependency;
 use types_registry::infra::storage::repo::EntityRepo;
 
-mod common;
+use crate::common;
 use common::{allow_all, stores, test_db};
 
 const NOW: OffsetDateTime = datetime!(2026-08-18 09:15:30 UTC);

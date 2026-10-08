@@ -3,6 +3,7 @@ name = "cf-gears-bss-ledger"
 edition.workspace = true
 license.workspace = true
 description = "BSS Billing Ledger gear: double-entry posting foundation, Postgres persistence in the bss schema"
+autotests = false
 
 [lib]
 name = "bss_ledger"
@@ -140,3 +141,8 @@ test-containers = { workspace = true }
 tower = { workspace = true }
 # TODO(broker): `jsonschema` validated event payloads against their vendored
 # JSON-Schemas in the (now parked) event-schema tests; re-add with the broker.
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
+autotests = false
 
 [lib]
 name = "cluster"
@@ -180,3 +181,8 @@ tempfile = { workspace = true }
 # run. `std::env::set_var` is `unsafe` in edition 2024 and the workspace forbids
 # `unsafe_code`, so the hermetic helper is the only available shape.
 temp-env = { workspace = true }
+
+# Every tests/*.rs in one binary; see tests/integration.rs.
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

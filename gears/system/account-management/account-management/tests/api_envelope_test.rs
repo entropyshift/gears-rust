@@ -6,11 +6,10 @@
 //! `application/problem+json` content type, and consistent behavior on
 //! missing-auth and cross-tenant rejections.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::doc_markdown)]
 
-mod common;
+use crate::common;
 
 use axum::http::StatusCode;
 use tower::ServiceExt;

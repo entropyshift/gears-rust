@@ -10,7 +10,7 @@
 //! These tests must not use raw SQL execution from test code. They are reduced to
 //! **connectivity + secure transaction smoke tests**.
 
-mod common;
+use crate::common;
 
 use anyhow::Result;
 use sea_orm::Set;

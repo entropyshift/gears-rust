@@ -7,7 +7,6 @@
 //! type re-evaluation) is pinned by `conversion_integration.rs` plus
 //! the in-source `service_tests`.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(
     clippy::expect_used,
@@ -16,7 +15,7 @@
     clippy::doc_markdown
 )]
 
-mod common;
+use crate::common;
 
 use axum::http::{StatusCode, header};
 use toolkit_gts::gts_id;

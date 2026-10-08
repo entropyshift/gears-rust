@@ -10,7 +10,7 @@
 //! membership-type discriminator: the same textual identifier may legitimately
 //! occur under multiple RG member-handle types.
 
-mod common;
+use crate::common;
 
 use anyhow::Result;
 use sea_orm::Set;

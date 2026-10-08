@@ -8,7 +8,6 @@
 //! (closure-table maintenance, hierarchy depth gating, soft-delete
 //! cascade) are pinned by `lifecycle_integration.rs`.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(
     clippy::expect_used,
@@ -17,7 +16,7 @@
     clippy::doc_markdown
 )]
 
-mod common;
+use crate::common;
 
 use axum::http::{StatusCode, header};
 use toolkit_gts::gts_id;
