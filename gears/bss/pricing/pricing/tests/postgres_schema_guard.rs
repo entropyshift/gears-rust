@@ -2,8 +2,8 @@
 //! from `information_schema` by the guard.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod guard_support;
-mod pg_support;
+use crate::guard_support;
+use crate::pg_support;
 
 use bss_pricing::module::BssPricingGear;
 use guard_support::{

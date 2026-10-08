@@ -8,7 +8,7 @@
 //! are seeded the way `types-registry` would hold them, publishes go through the gear's real
 //! ingest, and what the broker stored is read back from its backend.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
+use crate::entry_support;
 use bss_pricing::{
     api::rest::authoring::AuthoringState,
     infra::{

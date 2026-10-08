@@ -2,7 +2,7 @@
 //! required on every PUT (a full replace, `[]` = any currency) and restricts the currency of a
 //! NEW book; the settings say who changed them and when.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use plan_support::{Fixture, holding, setup};
 use serde_json::{Value, json};
 

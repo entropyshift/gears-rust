@@ -3,7 +3,7 @@
 //! the values of one declared key under If-Match, a used value is not removed (409 naming it), and
 //! the PUT judges removals from the same grouped count — each in a fixed number of statements.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::infra::storage::{
     entity::price_book_entry,
     repo::{price_book_entry_repo, price_repo},

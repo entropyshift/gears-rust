@@ -7,7 +7,7 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 use toolkit::api::OpenApiInfo;
 
-pub mod rest_support;
+use crate::rest_support;
 
 const CHARGE_KIND: &[&str] = &["recurring", "usage", "one_time"];
 const PERIOD: &[&str] = &["month", "year"];

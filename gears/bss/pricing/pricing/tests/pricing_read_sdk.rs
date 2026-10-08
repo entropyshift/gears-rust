@@ -1,6 +1,6 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
-mod seam_support;
+use crate::plan_support;
+use crate::seam_support;
 use bss_pricing_sdk::read::{PriceModel, PricingReadV1};
 use seam_support::ReadFixture;
 

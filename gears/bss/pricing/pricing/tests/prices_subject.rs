@@ -1,6 +1,6 @@
 //! The `prices` approval subject driven by the shared engine on a real database.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
+use crate::entry_support;
 use bss_approval::{ApprovalError, ApprovalSubject, Engine, Policy, SubmitRequest, Unit};
 use bss_pricing::infra::{
     prices::{PricesSubject, Release},

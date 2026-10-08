@@ -3,7 +3,7 @@
 //! Approved prices are written through the repository at fixed dates; the doors judge them on a
 //! movable clock, so a test can let a scheduled price start between two acts.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
+use crate::entry_support;
 
 use bss_pricing::infra::clock::Clock;
 use bss_pricing::infra::commercial_terms::wire;

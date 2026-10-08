@@ -1,9 +1,8 @@
 //! Commercial parity contracts on persisted `SQLite`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod acceptance_support;
-mod plan_support;
-mod seam_parity_support;
-mod seam_support;
+use crate::plan_support;
+use crate::seam_parity_support;
+use crate::seam_support;
 
 #[tokio::test]
 async fn replay_and_conflicts() {
@@ -54,8 +53,6 @@ fn crash_and_response_loss_reopen_database() {
         seam_parity_support::runtime().block_on(plan_support::entry_support::test_db());
     seam_parity_support::restart(&dsn);
 }
-
-mod schema_dump;
 
 #[tokio::test]
 async fn concurrent_entry_policies() {

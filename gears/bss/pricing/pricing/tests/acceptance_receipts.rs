@@ -39,7 +39,7 @@ async fn database() -> (DBProvider<DbError>, tempfile::TempDir, String) {
     .unwrap();
     (DBProvider::new(db), dir, dsn)
 }
-mod commercial_support;
+use crate::commercial_support;
 use commercial_support::{command, held, row};
 #[test]
 fn golden_v1_decodes_and_reencodes_byte_identically_without_rehashing() {
@@ -478,9 +478,7 @@ async fn hold_and_command_rereads_preserve_winners_and_refuse_changed_intent() {
 #[path = "acceptance_boundary/mod.rs"]
 mod boundary;
 
-mod acceptance_support;
-mod plan_support;
-mod seam_support;
+use crate::acceptance_support;
 use acceptance_support::AcceptanceFixture;
 use bss_pricing_sdk::acceptance::SellabilityV1;
 

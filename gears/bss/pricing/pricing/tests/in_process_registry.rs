@@ -5,7 +5,7 @@
 //! Products does, so a submit, a publish or a vote that reads a SKU on the transaction's task
 //! answers 503 instead of recording its unit.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::infra::storage::repo::{price_book_entry_repo, price_repo};
 use bss_products_sdk::{
     ReferenceRegistryV1,

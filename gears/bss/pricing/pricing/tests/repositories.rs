@@ -1,5 +1,6 @@
 //! Real scoped repository contracts, including two connections to one `SQLite` file.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
+use crate::storage_support;
 use bss_pricing::{
     domain::{
         price_book_entry::OpState,
@@ -12,12 +13,11 @@ use bss_pricing::{
     },
 };
 use std::sync::Arc;
+use storage_support::{at, test_db};
 use time::OffsetDateTime;
 use toolkit_db::secure::{AccessScope, TxConfig};
 use toolkit_db::{ConnectOpts, Db, DbError};
 use uuid::Uuid;
-mod storage_support;
-use storage_support::{at, test_db};
 fn book(tenant: Uuid) -> price_book::Model {
     price_book::Model {
         id: Uuid::new_v4(),

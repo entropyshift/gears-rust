@@ -3,9 +3,8 @@
 //! rewrites `tests/contract/<golden>.json` from the doors' answers — a claim that the contract
 //! was MEANT to change, which the diff has to justify.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-#[macro_use]
-mod contract_support;
-mod plan_support;
+use crate::contract_support;
+use crate::plan_support;
 
 async fn check(golden: &str) {
     let (f, catalog) = plan_support::setup().await;

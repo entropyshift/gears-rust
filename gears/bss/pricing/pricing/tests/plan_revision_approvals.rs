@@ -5,7 +5,7 @@
 //! re-checks with fresh reads, supersedes the published revision first and advances the plan's
 //! `published_rev`; descriptors and reference columns are never fingerprinted content (D-408).
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::infra::storage::repo::{
     approval_repo, plan_item_repo, price_book_entry_repo, price_repo,
 };

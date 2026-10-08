@@ -4,6 +4,7 @@
 //! connection, released together by a barrier: exactly one may win, and the loser must see the
 //! write's own conflict code rather than a driver error or a second success.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
+use crate::storage_support;
 use bss_approval::{Store, Unit, UnitState};
 use bss_pricing::{
     domain::plan,
@@ -17,11 +18,10 @@ use bss_pricing::{
     },
 };
 use std::{future::Future, pin::Pin, sync::Arc};
+use storage_support::{at, test_db};
 use toolkit_db::secure::{AccessScope, TxConfig};
 use toolkit_db::{ConnectOpts, DBProvider, Db, DbError, DbTx};
 use uuid::Uuid;
-mod storage_support;
-use storage_support::{at, test_db};
 
 fn book(tenant: Uuid) -> price_book::Model {
     price_book::Model {

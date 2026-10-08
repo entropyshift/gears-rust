@@ -1,6 +1,6 @@
 //! Price book entry authoring protocol branches through the production router.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
+use crate::entry_support;
 use entry_support::policy_support;
 use entry_support::{Fixture, KINDS, Kind, Script, Target};
 use serde_json::{Value, json};

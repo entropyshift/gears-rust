@@ -5,8 +5,8 @@
 //! revision make one unit, and a plan item's create and a copied item's attach round-trip through
 //! the Products registry double (reserve, write, confirm; attach, confirm).
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod pg_support;
-mod plan_support;
+use crate::pg_support;
+use crate::plan_support;
 use bss_approval::{Store, Unit, UnitState};
 use bss_pricing::{
     domain::plan,

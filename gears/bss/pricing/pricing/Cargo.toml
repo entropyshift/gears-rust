@@ -4,6 +4,12 @@ edition.workspace = true
 license.workspace = true
 description = "PriceBook pricing gear"
 
+autotests = false
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+
 [lib]
 name = "bss_pricing"
 

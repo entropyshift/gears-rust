@@ -4,7 +4,7 @@
 //! windows, 503s, grace, forced release, reconciliation) run over both kinds in
 //! `reference_ticker.rs`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
+use crate::entry_support;
 use bss_approval::{Store, Unit, UnitState};
 use bss_pricing::infra::{
     reference_ticker::Ticker,

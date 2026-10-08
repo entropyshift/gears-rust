@@ -3,10 +3,10 @@
 //! `(sku_id, charge_kind, model, id)` — a `uuid` and two texts ordered and compared by the engine
 //! production runs — the filter narrows every page, and each scope reads its SKUs.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod book_support;
-mod entry_paging_support;
-mod pg_support;
-mod plan_support;
+use crate::book_support;
+use crate::entry_paging_support;
+use crate::pg_support;
+use crate::plan_support;
 use book_support::stored_book;
 use bss_pricing::api::sku_usage::PricingSkuUsage;
 use bss_products_sdk::sku_usage::{SkuUsageV1, UsageScope};

@@ -4,8 +4,8 @@
 //! `entry_support::Script`). Products' own Postgres half of the barrier (reserve against the
 //! fences) is proven by its tier, `postgres_sku_chain.rs`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
-mod pg_support;
+use crate::entry_support;
+use crate::pg_support;
 use bss_pricing::{
     api::rest::authoring::AuthoringState,
     infra::{

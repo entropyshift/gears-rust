@@ -3,8 +3,8 @@
 //! (D-441); the book list on the toolkit's `OData` pager, with `q` and `sku_id` (D-442) — each
 //! list in a fixed number of statements, whatever the number of rows.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod book_support;
-mod plan_support;
+use crate::book_support;
+use crate::plan_support;
 use book_support::{
     Row, bare_revision, code_of, codes, days, door_book, encode, get, ids, instant, ok,
     stored_book, stored_entry, stored_price, today, unit_on,

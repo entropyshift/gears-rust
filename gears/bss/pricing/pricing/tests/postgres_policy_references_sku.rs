@@ -1,6 +1,6 @@
 //! D-514 on Postgres: the same seeded shapes as the SQLite migration test, in schema `bss`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod pg_support;
+use crate::pg_support;
 
 use bss_pricing::infra::usage_policy_wire::digest_text;
 use bss_pricing::module::BssPricingGear;

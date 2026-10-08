@@ -5,7 +5,7 @@
 //! or gains one (numbered after every price of the entry). Both halves are judged as the create
 //! judges them; a return's own dates and a price's temporariness stay fixed.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
+use crate::entry_support;
 use bss_pricing::infra::storage::{
     entity::price,
     repo::{price_book_entry_repo, price_repo},

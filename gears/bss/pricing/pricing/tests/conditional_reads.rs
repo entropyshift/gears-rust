@@ -1,6 +1,6 @@
 //! Conditional GET on the plan list, the plan counts and the book list (D-518).
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use axum::{
     Router,
     body::Body,

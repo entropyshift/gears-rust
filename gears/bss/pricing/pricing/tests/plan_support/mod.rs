@@ -3,8 +3,10 @@
 //! revisions through the repositories where the door under test is not the subject.
 #![allow(dead_code)]
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-#[path = "../entry_support/mod.rs"]
-pub mod entry_support;
+// One copy for the whole test binary (tests/integration.rs). `pub`, as the
+// lint suggests, does not compile: the module is private to the crate.
+#[allow(clippy::redundant_pub_crate)]
+pub(crate) use crate::entry_support;
 use bss_approval::{Store, Unit, UnitState};
 use bss_pricing::infra::storage::{
     RepoError,

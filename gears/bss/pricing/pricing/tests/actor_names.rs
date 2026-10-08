@@ -5,7 +5,7 @@
     clippy::unwrap_used,
     reason = "a test's fixtures and reads fail the test where they fail"
 )]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::infra::storage::{entity::plan_item, repo::plan_item_repo};
 use bss_products_sdk::{PRICING_SYSTEM_ACTOR, models::SkuType};
 use bss_rest::actor_names::{ActorDirectory, IdpUser, ListUsersQuery, queried_ids};

@@ -8,12 +8,12 @@
 //!   database, books seeded; the application reads, edits and deletes them. The Postgres twin
 //!   is `postgres_book_writes.rs`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod book_support;
-mod plan_support;
-use plan_support::entry_support::policy_support;
-mod schema_dump;
+use crate::book_support;
+use crate::plan_support;
+use crate::schema_dump;
 use book_support::{bare_revision, code_of, get, ok};
 use entry_support::Script;
+use plan_support::entry_support::policy_support;
 use plan_support::{Fixture, entry_support, id_of, plan, publish, request, stranger};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement};
 use serde_json::{Value, json};

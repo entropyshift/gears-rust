@@ -2,8 +2,8 @@
 //! the approved-start index to prices, and reverses; and a cancel and an end apply through the
 //! prices unit on the native engine.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
-mod pg_support;
+use crate::entry_support;
+use crate::pg_support;
 
 use bss_pricing::infra::clock::Clock;
 use bss_pricing::infra::commercial_terms::wire;

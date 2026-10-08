@@ -2,7 +2,7 @@
 //! and the approved-start index is unique per chain: per entry and per dimension value, with
 //! the default chain its own chain, and only among approved prices.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod pg_support;
+use crate::pg_support;
 use bss_pricing::infra::storage::{
     RepoError,
     entity::{price_book, price_book_entry},

@@ -31,7 +31,7 @@ fn skeleton_config_tolerates_old_deployment_keys() {
         .expect("the skeleton tolerates retired deployment fields");
 }
 
-pub mod rest_support;
+use crate::rest_support;
 
 #[tokio::test]
 async fn pricing_alone_initializes_serves_authoring_routes_and_stops() {

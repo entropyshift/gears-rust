@@ -5,7 +5,7 @@
 //! start before today), the revisions are published as an applied unit publishes them, and the
 //! reads go through the doors only. The Products double answers dated SKU versions when armed.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_products_sdk::models::{BillingTiming, SkuType};
 use plan_support::{
     Fixture, book, holding, id_of, item, lock, plan, publish, setup, stranger, text,
@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 use std::sync::atomic::Ordering::SeqCst;
 use uuid::Uuid;
 
-mod seam_support;
+use crate::seam_support;
 use seam_support::{
     Row, World, date, dimension, entry_of, flat, put, resolve, resolve_as, settings, world, written,
 };

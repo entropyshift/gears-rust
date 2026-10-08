@@ -18,8 +18,8 @@
 //! The Postgres twin is `postgres_entry_model_migration.rs`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-mod entry_support;
-mod schema_dump;
+use crate::entry_support;
+use crate::schema_dump;
 
 use bss_pricing::infra::reference_ticker::system_actor;
 use bss_pricing::infra::reference_work::{self, Caller, WallClock};

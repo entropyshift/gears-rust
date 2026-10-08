@@ -5,7 +5,7 @@
 //! platform's error layer); a source refusal is rendered at the door's own path through that same
 //! error layer.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod entry_support;
+use crate::entry_support;
 
 use axum::{
     Extension, Router,

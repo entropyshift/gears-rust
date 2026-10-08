@@ -2,7 +2,7 @@
 //! `plan_revision` kind, each kind shows its own impact, and a stored unit of a kind pricing does
 //! not record is a corrupt row (500), never treated as a `prices` unit.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::infra::storage::repo::approval_repo;
 use plan_support::{scope, setup, text, unit, unit_of_kind};
 use serde_json::json;

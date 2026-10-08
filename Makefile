@@ -931,7 +931,7 @@ test-settings-service-pg: install-tools
 ## whole purpose is to be the one place a Postgres-only defect surfaces must
 ## report every failure it found, not the first.
 test-pricing-pg: install-tools
-	cargo nextest run -p cf-gears-bss-pricing --run-ignored ignored-only -E 'binary(/^postgres_/)' --no-fail-fast
+	cargo nextest run -p cf-gears-bss-pricing --run-ignored ignored-only -E 'binary(integration) & test(/^postgres_/)' --no-fail-fast
 
 ## Run coord's Postgres tier (Docker required; testcontainers).
 ##

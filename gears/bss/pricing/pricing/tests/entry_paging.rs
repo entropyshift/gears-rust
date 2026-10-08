@@ -3,9 +3,9 @@
 //! `sku_id`, `charge_kind`, `model` and `reference_state`, a cursor bound to the filter and the
 //! day, D-473's `as_of` refusal judged before any entry is read, and seven statements per page.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod book_support;
-mod entry_paging_support;
-mod plan_support;
+use crate::book_support;
+use crate::entry_paging_support;
+use crate::plan_support;
 use book_support::{Row, code_of, days, get, ok, stored_book, stored_price, today};
 use entry_paging_support::{entry_at, ids_of, walk, with};
 use plan_support::{Catalog, Fixture, entry_support, holding, item, plan, setup};

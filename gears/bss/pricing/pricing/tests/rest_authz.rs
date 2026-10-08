@@ -1,8 +1,7 @@
 //! Authz census stays equal to the runtime and source route sets.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-#[path = "common/census.rs"]
-pub mod census;
-pub mod rest_support;
+use crate::census;
+use crate::rest_support;
 
 fn census() -> census::Routes {
     [

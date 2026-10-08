@@ -1,17 +1,18 @@
 //! Shared real REST and database fixture for reference execution.
 #![allow(dead_code)]
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-#[path = "../policy_support/mod.rs"]
-pub mod policy_support;
+// One copy for the whole test binary (tests/integration.rs). `pub`, as the
+// lint suggests, does not compile: the module is private to the crate.
+#[allow(clippy::redundant_pub_crate)]
+pub(crate) use crate::policy_support;
+use crate::storage_support;
 use axum::{Router, body::Body, http::Request};
 use serde_json::{Value, json};
 use std::sync::Arc;
+pub use storage_support::TestDsn;
 use toolkit_security::SecurityContext;
 use tower::ServiceExt;
 use uuid::Uuid;
-#[path = "../storage_support/mod.rs"]
-mod storage_support;
-pub use storage_support::TestDsn;
 /// A migrated file-backed database: provider, tenant scope, tenant and its [`TestDsn`], which the
 /// caller holds for the test's life.
 pub async fn test_db() -> (

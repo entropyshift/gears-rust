@@ -1,6 +1,6 @@
 //! D-484 on Postgres: the same seeded shapes as `plan_summary.rs`, in schema `bss`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod pg_support;
+use crate::pg_support;
 
 use bss_pricing::infra::storage::{entity::plan as plan_e, migrations::Migrator};
 use bss_pricing::module::BssPricingGear;

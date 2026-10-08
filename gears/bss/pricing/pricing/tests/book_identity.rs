@@ -1,6 +1,6 @@
 //! D-516: a book named by id also carries `{ id, code, name, currency }`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-mod plan_support;
+use crate::plan_support;
 use bss_pricing::infra::storage::repo::{price_book_entry_repo, price_repo};
 use bss_products_sdk::models::SkuType;
 use plan_support::{Fixture, book, id_of, item, plan, policy_entry as entry, scope, setup};
