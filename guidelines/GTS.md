@@ -932,11 +932,11 @@ The workspace includes tests that verify prefix customization works end-to-end:
 
 ```bash
 # Default prefix
-cargo test -p cf-gears-toolkit-gts --test integration prefix_customization:: -- --nocapture
+cargo test -p cf-gears-toolkit-gts --test prefix_customization -- --nocapture
 # Output: Compiled with GTS_ID_PREFIX = "gts."
 
 # Custom prefix
-GTS_ID_PREFIX=acme. cargo test -p cf-gears-toolkit-gts --test integration prefix_customization:: -- --nocapture
+GTS_ID_PREFIX=acme. cargo test -p cf-gears-toolkit-gts --test prefix_customization -- --nocapture
 # Output: Compiled with GTS_ID_PREFIX = "acme."
 ```
 
