@@ -490,9 +490,7 @@ Nightly (schedule)
 ### 7.4 CI build cache storage
 
 CI stores compiled crates (sccache) and the `cargo-gears` binary in S3-compatible storage
-if it is set up, and in the GitHub Actions cache if not. The test jobs also keep `main`'s
-`target/debug` and trybuild's build there; those two caches need S3 storage and are
-skipped without it. Only `main` writes to the storage.
+if it is set up, and in the GitHub Actions cache if not. Only `main` writes to the storage.
 
 Repository variables (Settings, Secrets and variables, Actions, Variables):
 
@@ -516,8 +514,9 @@ PRs. Do not add reviewers or a wait timer to `ci-cache-read`, or every PR job wa
 Do not also add the keys as repository or organization secrets: every job could read them,
 with or without an environment.
 
-Treat the write key like a deploy key. Jobs run the build scripts and proc-macros they
-restore from the storage, so whoever holds it can change what later CI runs execute.
+Treat the write key like a deploy key. Jobs link the compiled crates they restore from
+the storage into the binaries they run, so whoever holds it can change what later CI runs
+execute.
 
 Runs without the secrets (PRs from forks, Dependabot PRs) use the GitHub Actions cache.
 They get no sccache objects from `main`, so their first run compiles everything. They do
@@ -529,14 +528,11 @@ Files go under the `gears-rust/` prefix. Each job log shows the storage it used
 | Prefix | Contents | Lifecycle rule |
 |--------|----------|----------------|
 | `gears-rust/sccache/` | compiled crates | expire after 30 days |
-| `gears-rust/target/<job>/` | `<OS>.<commit>.<run>.tar.zst` archives and `<OS>.manifest.json`. Each save keeps its own archive and the previous one, and deletes the others once they are three hours old. | expire after 30 days, for archives a cancelled job left behind |
-| `gears-rust/trybuild/<job>/` | `<OS>.tar.zst` and `<OS>.key`, replaced on each save | expire after 30 days, for `.partial` uploads a cancelled job left behind |
 | `gears-rust/tools/cargo-gears/<version>/<OS>/` | the `cargo-gears` binary | none; delete old versions by hand |
 
-Every save on `main` rewrites the current objects, so a 30-day expiry only removes them
-when `main` has not built for that long; the next run then builds from scratch. Also add
-a rule that aborts incomplete multipart uploads after a day: the large archives upload in
-parts, and a cancelled save leaves them.
+sccache never deletes objects, so the expiry rule is what removes compiled crates of old
+dependency versions. It counts from when an object was written, so each crate misses once
+a month and is written again.
 
 To rotate a key: create a new key with the same access, put it in the environment, and
 revoke the old key after a new run is green. Rotate both keys regularly

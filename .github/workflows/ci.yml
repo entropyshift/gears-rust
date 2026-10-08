@@ -229,8 +229,7 @@ jobs:
       || github.event_name == 'workflow_dispatch')
     runs-on: ${{ matrix.os }}
     environment: *cache-env
-    # Room for a cold Windows run: build 25-45 min, plus the target and
-    # trybuild saves on main (~15 min) and the tests.
+    # Room for a cold Windows run: build 25-45 min and the tests.
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -249,8 +248,8 @@ jobs:
       # do not change.
       _LINK_: ${{ matrix.os == 'windows-latest' && '-Brepro -DEBUG:NONE' || '' }}
     steps:
-      # Linux: the target and trybuild caches restore ~74 GB into ~85 GB free,
-      # and some tests build more. Only the quick deletions.
+      # Linux: target/ grows to ~74 GB (test binaries and trybuild's build)
+      # in ~85 GB free. Only the quick deletions.
       - name: Free disk space
         if: runner.os == 'Linux'
         uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
@@ -337,39 +336,12 @@ jobs:
         shell: bash
         run: df -h .
 
-      # trybuild's own dependency build (target/tests/trybuild), kept between
-      # runs. See .github/actions/trybuild-cache/trybuild-cache.sh.
-      - name: Restore trybuild cache
-        uses: ./.github/actions/trybuild-cache/restore
-        with: *cache-storage
-
-      # main's target/debug, so cargo relinks only the test binaries whose code
-      # changed. After the trybuild restore: it checks that archive's commit.
-      # See .github/actions/target-cache/target-cache.sh.
-      - name: Restore target cache
-        uses: ./.github/actions/target-cache/restore
-        with: *cache-storage
-
+      # A separate step, so the log shows build and test time apart.
       - name: Build tests (no macros)
-        id: build
         run: make build-no-macros
-
-      # Saved right after the build: some tests rebuild crates in target/
-      # with other settings (toolkit-gts prefix_customization sets
-      # GTS_ID_PREFIX), which would make the next run rebuild ~110 crates.
-      - name: Save target cache
-        uses: ./.github/actions/target-cache/save
-        with: *cache-storage
 
       - name: cargo test (no macros)
         run: make test-no-macros
-
-      # Also when a test failed: the trybuild build is valid either way, and
-      # it must come from the same commit as the target cache saved above.
-      - name: Save trybuild cache
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        uses: ./.github/actions/trybuild-cache/save
-        with: *cache-storage
 
   integration:
     name: Integration tests
@@ -445,12 +417,6 @@ jobs:
       - name: Disk headroom (guard)
         shell: bash
         run: df -h .
-
-      # The macro UI tests and the toolkit-db lanes run trybuild, one step
-      # after another. See .github/actions/trybuild-cache/trybuild-cache.sh.
-      - name: Restore trybuild cache
-        uses: ./.github/actions/trybuild-cache/restore
-        with: *cache-storage
 
       # Builds the test binaries of the `make test-*` steps below, in step
       # order, in the background: each step's tests then run while the next
@@ -547,12 +513,6 @@ jobs:
 
       - name: Test types-registry (db integration)
         run: make test-types-registry-db
-
-      # Also when a suite failed: the trybuild build is valid either way.
-      - name: Save trybuild cache
-        if: ${{ !cancelled() }}
-        uses: ./.github/actions/trybuild-cache/save
-        with: *cache-storage
 
       - name: Prebuild log
         if: always()
