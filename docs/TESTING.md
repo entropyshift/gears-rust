@@ -261,8 +261,10 @@ them as one binary instead:
 
 Add a new test file to `tests/integration.rs`. CI runs
 `tools/scripts/check_test_layout.py`, which fails for a file that is not loaded.
-A file that needs a crate root of its own stays a separate `[[test]]` in
-`Cargo.toml`.
+A file that needs a binary of its own stays a separate `[[test]]` in
+`Cargo.toml`: one that defines gears or checks which gears are linked (the
+runtime finds every gear linked into a binary), or one that needs its own
+crate root.
 
 ## 5. End-to-End (E2E) Tests
 

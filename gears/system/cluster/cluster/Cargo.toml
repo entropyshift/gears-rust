@@ -186,3 +186,13 @@ temp-env = { workspace = true }
 [[test]]
 name = "integration"
 path = "tests/integration.rs"
+
+# Binaries of their own: each defines gears and checks which gears its binary
+# links, so other test files' gears must not be in it.
+[[test]]
+name = "consumer_wiring"
+path = "tests/consumer_wiring.rs"
+
+[[test]]
+name = "oop_probe_ordering"
+path = "tests/oop_probe_ordering.rs"

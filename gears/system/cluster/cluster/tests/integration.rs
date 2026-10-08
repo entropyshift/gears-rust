@@ -11,8 +11,6 @@ mod common;
 mod caller_ownership;
 #[path = "conformance.rs"]
 mod conformance;
-#[path = "consumer_wiring.rs"]
-mod consumer_wiring;
 #[path = "coordination.rs"]
 mod coordination;
 #[path = "descriptor_seams.rs"]
@@ -25,8 +23,6 @@ mod grpc_services;
 mod mixed_backend_integration;
 #[path = "oop_bootstrap.rs"]
 mod oop_bootstrap;
-#[path = "oop_probe_ordering.rs"]
-mod oop_probe_ordering;
 #[path = "oversized_error_hop.rs"]
 mod oversized_error_hop;
 #[path = "platform_credential.rs"]

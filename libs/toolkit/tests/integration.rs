@@ -25,8 +25,6 @@ mod integration_test;
 mod lifecycle_macro_tests;
 #[path = "lifecycle_state.rs"]
 mod lifecycle_state;
-#[path = "macro_tests.rs"]
-mod macro_tests;
 #[path = "odata_select.rs"]
 mod odata_select;
 #[path = "panic_tracing_tests.rs"]

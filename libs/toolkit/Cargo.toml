@@ -224,3 +224,9 @@ tracing-test = { workspace = true, features = ["no-env-filter"] }
 [[test]]
 name = "integration"
 path = "tests/integration.rs"
+
+# A binary of its own: it defines test gears, and the runtime starts every gear
+# linked into a binary, so they would run in the other tests (db_phase_tests).
+[[test]]
+name = "macro_tests"
+path = "tests/macro_tests.rs"
