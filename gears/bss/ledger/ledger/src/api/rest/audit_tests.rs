@@ -2,7 +2,7 @@
 //! projections. The handlers read through a `DBProvider`, so the end-to-end
 //! audit-retrieval + tamper-status behavior (who/when/source dims of a posted
 //! entry; tamper-status reflecting an inserted freeze) is exercised against a
-//! real database in `tests/postgres_cross_tenant.rs`.
+//! real database in `tests/integration/postgres_cross_tenant.rs`.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use axum::http::HeaderMap;

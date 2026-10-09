@@ -992,7 +992,7 @@ fn backoff_delay(config: &ReconnectConfig, attempt: u32) -> Duration {
 
 // `with_json_body` and the streaming path are exercised end-to-end (real
 // serialized body observed by a real server) by the integration tests in
-// `tests/rest_client_codegen.rs` (`unary_post_round_trip` et al.) — a local
+// `tests/integration/rest_client_codegen.rs` (`unary_post_round_trip` et al.) — a local
 // unit test here could only check "builds without panicking" without
 // access to `toolkit_http::RequestBuilder`'s private fields, which is
 // strictly weaker than the existing round-trip coverage.

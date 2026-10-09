@@ -1,5 +1,5 @@
 //! P-D-263 on SQLite: 000014 adds the archive mark to SKUs and categories, keeps every row, and
-//! `down` takes the mark away again. The twin is `tests/postgres_archive.rs`.
+//! `down` takes the mark away again. The twin is `tests/integration/postgres_archive.rs`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 use super::*;
 use sea_orm::{ConnectionTrait, Database, DbBackend, Statement};

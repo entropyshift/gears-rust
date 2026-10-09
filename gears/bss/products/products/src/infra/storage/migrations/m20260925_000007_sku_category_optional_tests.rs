@@ -1,6 +1,6 @@
 //! The named exception to the house shape `applies_replays_and_reverts_on_sqlite`: this migration
 //! applies and replays, but it does not revert (P-D-196; plan review L9). The upgrade through the
-//! real runner, with rows seeded, is `tests/sku_category_migration.rs` and its Postgres twin.
+//! real runner, with rows seeded, is `tests/integration/sku_category_migration.rs` and its Postgres twin.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 use super::*;
 use sea_orm::{ConnectionTrait, Database, DbBackend, Statement};

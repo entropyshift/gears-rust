@@ -11,7 +11,6 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
-autotests = false
 
 [lib]
 name = "cluster_sdk"
@@ -125,7 +124,7 @@ name = "gen_grpc_proto"
 required-features = ["grpc-client"]
 
 [dev-dependencies]
-# Backs `tests/protogen_shape.rs`, which asserts that the `cluster.v1` contract IR
+# Backs `tests/integration/protogen_shape.rs`, which asserts that the `cluster.v1` contract IR
 # and DTO schemas actually project to a `.proto`. Three of protogen's constraints
 # are violated by writing ordinary Rust, and one of them — `Vec<u8>` rendering as
 # an integer array and projecting to `repeated int64` — fails *silently* on the
@@ -137,7 +136,7 @@ required-features = ["grpc-client"]
 # cannot satisfy. Dev-dep paths are stripped from the published manifest, so this
 # costs downstream consumers nothing. Enforced by `make check-release-config`.
 toolkit-contract-protogen = { package = "cf-gears-toolkit-contract-protogen", path = "../../../../libs/toolkit-contract-protogen" }
-# Backs the staleness check in `tests/protogen_shape.rs`, which re-serialises the
+# Backs the staleness check in `tests/integration/protogen_shape.rs`, which re-serialises the
 # lockfile to prove regeneration assigned no new field numbers.
 toml = { workspace = true }
 # Hermetic per-case environment mutation for `wiring_tests.rs`, which drives
@@ -161,7 +160,3 @@ tokio = { workspace = true, features = ["test-util"] }
 # plugin's `scoped_warn_capture`.
 tracing-subscriber = { workspace = true }
 
-# Every tests/*.rs in one binary; see tests/integration.rs.
-[[test]]
-name = "integration"
-path = "tests/integration.rs"

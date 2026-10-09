@@ -6,7 +6,7 @@
 //! status, resource type, and key context fields (`field_violations`,
 //! `violations`, `reason`) — for every `DomainError` variant. They are
 //! the unit-level wire-invariant guard; the HTTP-level sweep lives in
-//! `tests/api_status_mapping_test.rs`.
+//! `tests/integration/api_status_mapping_test.rs`.
 
 use std::time::Duration;
 use toolkit_gts::gts_id;

@@ -85,7 +85,7 @@ needs is the bootstrap's: the HTTP listener with `/healthz`, `/readyz`, `/health
 and `/openapi.json` served **before** the gear's `start` runs, self-registration
 with backoff, the presence loop, the drain sequence and DirectoryService
 deregistration on SIGTERM. **None of it is in this crate**, which ADR-0005
-requires and `tests/oop_bootstrap.rs` asserts.
+requires and `tests/integration/oop_bootstrap.rs` asserts.
 
 Two things the config must carry, both of which are hard failures rather than
 degradations:

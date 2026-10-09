@@ -45,7 +45,7 @@ note); a plugin or the `cluster` gear does the wiring and calls in.
 | `cache.rs` | `SC-CACHE-*` scenarios + `run_cache_conformance` |
 | `leader.rs` | `SC-LEAD-*` scenarios + `run_leader_conformance` |
 | `lock.rs` | `SC-LOCK-*` scenarios + `run_lock_conformance` |
-| `model.rs` | reference-model replay engine (`replay_against_model`) for CAS/version invariants; the `proptest` strategy driving it lives in `tests/model.rs` |
+| `model.rs` | reference-model replay engine (`replay_against_model`) for CAS/version invariants; the `proptest` strategy driving it lives in `tests/integration/model.rs` |
 
 ## Capability gating
 

@@ -11,7 +11,6 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears", "cf-gears-toolkit"]
 categories = ["web-programming"]
 metadata.docs.rs.all-features = true
-autotests = false
 
 [lib]
 name = "toolkit_http"
@@ -122,8 +121,3 @@ opentelemetry_sdk = { workspace = true, features = ["testing"] }
 flate2 = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
-
-# Every tests/*.rs in one binary; see tests/integration.rs.
-[[test]]
-name = "integration"
-path = "tests/integration.rs"

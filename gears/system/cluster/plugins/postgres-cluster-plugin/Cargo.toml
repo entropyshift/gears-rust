@@ -11,7 +11,6 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
-autotests = false
 
 [lib]
 name = "postgres_cluster_plugin"
@@ -93,7 +92,7 @@ sqlx = { workspace = true, features = [
 # every fleet instance retries a shared-database blip on the same deterministic
 # schedule, aligning reconnect attempts into bursts.
 rand = { workspace = true }
-# Layer 3 testcontainers fixture (`tests/common/mod.rs`, DESIGN.md/TESTING.md
+# Layer 3 testcontainers fixture (`tests/integration/common/mod.rs`, DESIGN.md/TESTING.md
 # §4.1) — optional, only pulled in by `--features integration`. See the
 # `[features]` doc above for why these live here rather than
 # `[dev-dependencies]`.
@@ -117,7 +116,7 @@ tracing-subscriber = { workspace = true }
 futures-util = { workspace = true }
 # Layer 2 conformance suite (TESTING.md §3): the same parametrized suites
 # every other backend runs, wired against this plugin's real Postgres-backed
-# cache/lock/leader in `tests/conformance.rs`.
+# cache/lock/leader in `tests/integration/conformance.rs`.
 # Path-only, no version on purpose: cargo drops a path-only dev-dependency from the published
 # manifest, so publishing this plugin never needs the conformance crate on crates.io.
 cf-gears-cluster-conformance = { path = "../../cluster-conformance" }
@@ -135,14 +134,11 @@ cluster = { package = "cf-gears-cluster", path = "../../cluster" }
 # standalone }` alongside `lock: { provider: postgres }`.
 cf-gears-standalone-cluster-plugin = { path = "../standalone-cluster-plugin" }
 
-# Layer 2 (conformance) and Layer 3 (testcontainers) test binaries all require
-# a real Docker daemon, so each is gated behind `required-features =
-# ["integration"]` (docs/TESTING.md §7) — `cargo test -p
-# cf-postgres-cluster-plugin` (no flag) skips building these binaries
-# entirely, rather than merely skipping test functions inside them.
-
-# Every tests/*.rs in one binary; see tests/integration.rs.
+# Layer 2 (conformance) and Layer 3 (testcontainers) tests all require a real
+# Docker daemon, so their test binary (tests/integration/) is gated behind
+# `required-features = ["integration"]` (docs/TESTING.md §7) — `cargo test -p
+# cf-postgres-cluster-plugin` (no flag) skips building it entirely, rather than
+# merely skipping test functions inside it.
 [[test]]
 name = "integration"
-path = "tests/integration.rs"
 required-features = ["integration"]

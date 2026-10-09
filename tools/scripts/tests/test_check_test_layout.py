@@ -11,46 +11,35 @@ from check_test_layout import problems  # noqa: E402
 
 
 class ProblemsTest(unittest.TestCase):
-    def crate(self, manifest, root, files):
-        tmp = Path(tempfile.mkdtemp())
-        (tmp / "tests").mkdir()
-        (tmp / "Cargo.toml").write_text(manifest)
-        (tmp / "tests" / "integration.rs").write_text(root)
+    def folder(self, root, files):
+        tmp = Path(tempfile.mkdtemp()) / "integration"
+        tmp.mkdir()
+        (tmp / "main.rs").write_text(root)
         for name in files:
-            (tmp / "tests" / name).write_text("")
+            (tmp / name).write_text("")
         return tmp
 
     def test_every_file_loaded(self):
-        crate = self.crate(
-            "[package]\nautotests = false\n",
-            '#[path = "a.rs"]\nmod a;\nmod common;\n#[path = "b.rs"]\nmod b;\n',
+        folder = self.folder(
+            'mod a;\npub mod common;\n#[path = "b.rs"]\nmod b;\n',
             ["a.rs", "b.rs", "common.rs"],
         )
-        self.assertEqual(problems(crate), [])
+        self.assertEqual(problems(folder), [])
 
     def test_missing_file(self):
-        crate = self.crate("[package]\nautotests = false\n", '#[path = "a.rs"]\nmod a;\n', ["a.rs", "new.rs"])
-        self.assertEqual(len(problems(crate)), 1)
-        self.assertIn("new.rs is not loaded", problems(crate)[0])
+        folder = self.folder("mod a;\n", ["a.rs", "new.rs"])
+        self.assertEqual(len(problems(folder)), 1)
+        self.assertIn("new.rs is not loaded", problems(folder)[0])
 
-    def test_own_binary_declared_in_manifest(self):
-        crate = self.crate(
-            '[package]\nautotests = false\n\n[[test]]\nname = "own"\npath = "tests/own.rs"\n',
-            '#[path = "a.rs"]\nmod a;\n',
-            ["a.rs", "own.rs"],
-        )
-        self.assertEqual(problems(crate), [])
-
-    def test_autotests_left_on(self):
-        crate = self.crate("[package]\n", '#[path = "a.rs"]\nmod a;\n', ["a.rs"])
-        self.assertEqual(len(problems(crate)), 1)
-        self.assertIn("autotests = false", problems(crate)[0])
+    def test_mod_inside_a_block_counts(self):
+        folder = self.folder("#[cfg(feature = \"pg\")]\n    mod a;\n", ["a.rs"])
+        self.assertEqual(problems(folder), [])
 
     def test_files_in_subfolders_are_not_test_files(self):
-        crate = self.crate("[package]\nautotests = false\n", "", [])
-        (crate / "tests" / "support").mkdir()
-        (crate / "tests" / "support" / "mod.rs").write_text("")
-        self.assertEqual(problems(crate), [])
+        folder = self.folder("", [])
+        (folder / "support").mkdir()
+        (folder / "support" / "mod.rs").write_text("")
+        self.assertEqual(problems(folder), [])
 
 
 if __name__ == "__main__":

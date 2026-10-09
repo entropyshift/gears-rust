@@ -90,7 +90,7 @@ Chosen option: "GTS with traits pattern", because it is the only option that pro
 * Code review: verify all API responses use GTS type paths, never SMALLINT IDs
 * Integration tests: verify junction table FK constraints reject invalid type references
 * Schema validation: verify `x-gts-traits` values match `x-gts-traits-schema` definition
-* **GTS type system unit tests** (33 tests, all passing): `gears/system/types-registry/types-registry/tests/rg_gts_type_system_tests.rs` — validates all schemas from this ADR against `gts` crate v0.8.4 in-memory, including base contract with metadata, chained types with inline metadata properties, valid/invalid instances, metadata field validation, traits, and deferred validation
+* **GTS type system unit tests** (33 tests, all passing): `gears/system/types-registry/types-registry/tests/integration/rg_gts_type_system_tests.rs` — validates all schemas from this ADR against `gts` crate v0.8.4 in-memory, including base contract with metadata, chained types with inline metadata properties, valid/invalid instances, metadata field validation, traits, and deferred validation
 
 ## Pros and Cons of the Options
 
@@ -558,7 +558,7 @@ Key design choices:
 ## Implementation Findings
 
 > Discovered during implementation validation with `gts` crate v0.8.4 via in-memory `TypesRegistryService` unit tests.
-> Test file: `gears/system/types-registry/types-registry/tests/rg_gts_type_system_tests.rs` (33 tests, all passing).
+> Test file: `gears/system/types-registry/types-registry/tests/integration/rg_gts_type_system_tests.rs` (33 tests, all passing).
 
 ### Finding 1: `x-gts-traits` mandatory on base contract
 

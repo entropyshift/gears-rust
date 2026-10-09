@@ -290,7 +290,7 @@ mod tests {
     /// overflow-checks) or silently wrap to a tiny `part_size` — it must be
     /// reported as `None` so the caller can turn it into a domain error.
     /// `round_up_to` is private, so this is a same-module unit test rather
-    /// than an integration test in `tests/multipart_test.rs`.
+    /// than an integration test in `tests/integration/multipart_test.rs`.
     #[test]
     fn round_up_to_does_not_overflow_on_max_input() {
         assert_eq!(round_up_to(u64::MAX, DEFAULT_MIN_PART_SIZE), None);

@@ -6,7 +6,7 @@
 //! rather than only through a route. A test that merely drove a mounted route and
 //! found a non-NULL correlation would pass just as well against the per-handler
 //! mint D-431 forbids; that every audit row carries one is
-//! `tests/approval_doors.rs::every_act_is_audited_with_its_actor_subject_and_correlation`,
+//! `tests/integration/approval_doors.rs::every_act_is_audited_with_its_actor_subject_and_correlation`,
 //! and it needs a database.
 
 #![allow(clippy::expect_used, clippy::unwrap_used)]

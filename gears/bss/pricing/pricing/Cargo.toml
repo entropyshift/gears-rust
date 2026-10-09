@@ -4,12 +4,6 @@ edition.workspace = true
 license.workspace = true
 description = "PriceBook pricing gear"
 
-autotests = false
-
-[[test]]
-name = "integration"
-path = "tests/integration.rs"
-
 [lib]
 name = "bss_pricing"
 
@@ -82,7 +76,7 @@ toolkit-db = { workspace = true, features = ["pg", "sqlite", "test-support"] }
 # The events suite decodes the interim envelope with the broker SDK's own decoder
 # (`producer::ProducerOutboxEnvelope`), which the `outbox` feature exposes.
 event-broker-sdk = { workspace = true, features = ["db", "outbox"] }
-# The bound-producer suite (`tests/broker_producer.rs`) drives a real in-process broker: the
+# The bound-producer suite (`tests/integration/broker_producer.rs`) drives a real in-process broker: the
 # gear's own harness (`test_support::EventBrokerHarness`), which replaced the SDK's mock.
 cf-gears-event-broker = { path = "../../../system/event-broker/event-broker", features = ["test-utils"] }
 toml = { workspace = true }

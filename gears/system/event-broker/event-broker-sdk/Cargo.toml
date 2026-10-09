@@ -10,7 +10,6 @@ rust-version.workspace = true
 readme = "README.md"
 keywords = ["constructorfabric", "cf-gears", "event-broker"]
 categories = ["asynchronous"]
-autotests = false
 
 [package.metadata.docs.rs]
 all-features = true
@@ -102,8 +101,3 @@ axum = { workspace = true }
 # dev-only, so Cargo permits the cycle.
 cf-gears-event-broker = { path = "../event-broker", features = ["test-utils"] }
 trybuild = { workspace = true }
-
-# Every tests/*.rs in one binary; see tests/integration.rs.
-[[test]]
-name = "integration"
-path = "tests/integration.rs"

@@ -30,7 +30,7 @@
 //!   live read at replay time, not baked into the generated op.
 //!
 //! The `proptest` strategy that generates the op sequences lives in the crate's
-//! `tests/model.rs` (proptest is a dev-dependency); this module is the
+//! `tests/integration/model.rs` (proptest is a dev-dependency); this module is the
 //! runtime-agnostic replay engine those tests drive.
 
 use std::collections::HashMap;

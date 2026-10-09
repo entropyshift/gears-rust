@@ -34,7 +34,7 @@
 //! plain composite index with no `WHERE`. `SQLite` has supported partial
 //! (`WHERE`-qualified) indexes since 3.8.0, and the syntax is identical to
 //! Postgres's, but since this is new ground for the gear it is covered
-//! directly by `tests/migration_test.rs::policies_unique_index_rejects_duplicate_scope_tuple`
+//! directly by `tests/integration/migration_test.rs::policies_unique_index_rejects_duplicate_scope_tuple`
 //! rather than assumed to work by analogy.
 //!
 //! `PolicyRepo::upsert` itself is additionally wrapped in an explicit DB

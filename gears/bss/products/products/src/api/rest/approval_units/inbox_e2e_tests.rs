@@ -2,7 +2,7 @@
 //! the facade gear `bss-approvals` booted from its config, with pricing's and products' sources in
 //! its hub, each over its own gear's state and database. The cross-gear precedent is
 //! `sku_governance_tests`' real pricing entry. The exact order of a walk is proved on Postgres
-//! (`tests/postgres_approvals_inbox.rs`); here every instant is a whole second, which `SQLite`'s
+//! (`tests/integration/postgres_approvals_inbox.rs`); here every instant is a whole second, which `SQLite`'s
 //! text column orders as time.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 

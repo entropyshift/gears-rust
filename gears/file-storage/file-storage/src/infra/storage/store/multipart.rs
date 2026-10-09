@@ -107,7 +107,7 @@ impl Store {
     /// in production** -- see `MultipartRepo::set_expires_at` for why this
     /// exists and why it is `#[doc(hidden)]` rather than gated behind a
     /// Cargo feature (it is called from the external integration-test crate
-    /// `tests/cleanup_test.rs`).
+    /// `tests/integration/cleanup_test.rs`).
     #[doc(hidden)]
     pub async fn set_multipart_expires_at_for_test(
         &self,

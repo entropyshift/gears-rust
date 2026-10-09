@@ -187,6 +187,6 @@ the container is managed by `ClickHouseSidecar` in
 `testing/e2e/lib/sidecars.py`. The ClickHouse image and tag are pinned once,
 as `CLICKHOUSE_IMAGE`/`CLICKHOUSE_TAG` in
 `libs/test-containers/src/lib.rs`, and consumed from there by both
-`tests/common/mod.rs` (via `test_containers::clickhouse()`) and by
+`tests/integration/common/mod.rs` (via `test_containers::clickhouse()`) and by
 `sidecars.py`; the Rust test `e2e_sidecar_pins_the_same_clickhouse_image`
 checks the two stay in agreement.

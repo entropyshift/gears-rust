@@ -331,9 +331,9 @@ mod pg {
     //! The harness (`boot` / `authed_ctx` / `provision_req` / `balanced_post` /
     //! `account_ids` + the authz / seller fakes) is the shared foundation Tasks
     //! 8-11 call. The authz fakes + the authed-context builder are copied
-    //! verbatim from `tests/rest_journal_entries.rs` (those live in the
+    //! verbatim from `tests/integration/rest_journal_entries.rs` (those live in the
     //! integration crate and can't be imported here); the seed helpers are
-    //! copied from `tests/postgres_provisioning.rs`. One container per test.
+    //! copied from `tests/integration/postgres_provisioning.rs`. One container per test.
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
     use std::sync::Arc;
@@ -368,7 +368,7 @@ mod pg {
     use crate::infra::seller_guard::{SellerGuard, TenantTypeReader};
     use crate::infra::storage::migrations::Migrator;
 
-    // ── authz fakes (verbatim from tests/rest_journal_entries.rs) ──────────────
+    // ── authz fakes (verbatim from tests/integration/rest_journal_entries.rs) ──────────────
     fn subject_tenant_id(request: &EvaluationRequest) -> Uuid {
         request
             .subject
@@ -524,7 +524,7 @@ mod pg {
         (container, client, Uuid::now_v7())
     }
 
-    // ── seed helpers (from tests/postgres_provisioning.rs) ─────────────────────
+    // ── seed helpers (from tests/integration/postgres_provisioning.rs) ─────────────────────
     fn account(
         class: AccountClass,
         currency: &str,

@@ -98,7 +98,7 @@ pub struct Cart {
 
 // A required nested message that itself contains a required nested message — the
 // two-level chain H1 makes decode fallibly. Compile-checked here; its runtime
-// behaviour is asserted in `tests/proto_bridge_message.rs`.
+// behaviour is asserted in `tests/integration/proto_bridge_message.rs`.
 #[derive(Debug, Clone, Default, PartialEq, ProtoBridge)]
 #[proto_bridge(stub = "crate::stubs::Order")]
 pub struct Order {

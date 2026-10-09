@@ -3,7 +3,7 @@
 //! The load-bearing coverage (cross-tenant due-work enumeration → per-pair run →
 //! at-most-once release, and the drain of a QUEUED out-of-order segment by a
 //! later tick) is in the Docker-gated integration test
-//! `tests/postgres_recognition_run.rs`, which boots Postgres and drives the real
+//! `tests/integration/postgres_recognition_run.rs`, which boots Postgres and drives the real
 //! `RecognitionRunService`. These plain unit tests pin the `RecognitionRunReport`
 //! accounting shape (the per-tick tally the ticker logs) without a database.
 #![allow(clippy::unwrap_used, clippy::expect_used)]

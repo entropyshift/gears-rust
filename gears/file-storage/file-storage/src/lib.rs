@@ -15,7 +15,7 @@ pub use file_storage_sdk::{FileStorageClientV1, FileStorageError};
 pub mod gear;
 pub use gear::FileStorageGear;
 
-// Re-exported for schema-level migration tests (see `tests/migration_test.rs`).
+// Re-exported for schema-level migration tests (see `tests/integration/migration_test.rs`).
 pub use infra::storage::migrations::Migrator;
 
 // === INTERNAL MODULES ===

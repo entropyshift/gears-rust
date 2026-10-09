@@ -482,7 +482,7 @@ against a live PostgreSQL 19 beta 2 server by @vasylcf (probe branch
 - **PostgreSQL 19 is pre-GA.** The image-tag half of this blocker is resolved: every fixture
   now starts through [`libs/test-containers`](../../../../libs/test-containers/src/lib.rs),
   which pins `POSTGRES_GRAPH_TAG` for the SQL/PGQ lane and exposes `postgres_graph()` to start
-  it. Live coverage is `libs/toolkit-db/tests/pg/secure_graph.rs`, run by `make test-pgq` and
+  it. Live coverage is `libs/toolkit-db/tests/integration/pg/secure_graph.rs`, run by `make test-pgq` and
   by the CI `integration` job with `GEARS_TEST_PG_GRAPH_REQUIRED=1`, so an unavailable image
   fails that lane rather than letting the isolation suite pass vacuously; locally the default
   is still a skip while the tag is a pre-GA beta that Docker Hub may withdraw at GA.
@@ -610,10 +610,10 @@ broken code.
   dangerous substring, so substring searches prove nothing.
 - Compile-fail test `graph_from_unscoped.rs` under `libs/toolkit-db/tests/ui/fail/`, alongside
   the existing `cte_from_unscoped.rs`; the harness already globs that directory
-  ([tests/ui.rs](../../../../libs/toolkit-db/tests/ui.rs)).
+  ([tests/integration/ui.rs](../../../../libs/toolkit-db/tests/integration/ui.rs)).
 - Live tests against a real PostgreSQL 19 server, in a new `tests/pg/` directory — the existing
   live CTE tests live in
-  [tests/sqlite/secure_cte.rs](../../../../libs/toolkit-db/tests/sqlite/secure_cte.rs) and
+  [tests/integration/sqlite/secure_cte.rs](../../../../libs/toolkit-db/tests/integration/sqlite/secure_cte.rs) and
   SQLite cannot host these. Cover, at minimum: cross-tenant edges are not traversed; an
   unscoped edge body would return foreign rows (i.e. the test can actually observe the hole);
   and the DDL generated for the graph matches what the query builder assumes.

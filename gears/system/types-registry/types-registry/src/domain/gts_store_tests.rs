@@ -1,7 +1,7 @@
 //! In-source tests for the pure half of [`super`]: everything that needs no
 //! database. The database-backed half — closure containment, the candidate
 //! overlay against real rows, rebuild-sees-the-new-revision — is
-//! `tests/gts_store_test.rs`.
+//! `tests/integration/gts_store_test.rs`.
 
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
@@ -196,7 +196,7 @@ fn an_unparsable_identifier_carries_the_library_verdict() {
 
 /// The store holds exactly what was handed to it, and a stranger is absent. This
 /// is the pure-input form of the closure-containment criterion; its database form
-/// is in `tests/gts_store_test.rs`.
+/// is in `tests/integration/gts_store_test.rs`.
 #[test]
 fn the_store_holds_the_documents_it_was_given_and_nothing_else() {
     let mut unit = build_store(vec![doc(BASE), doc(DERIVED)]).expect("build");

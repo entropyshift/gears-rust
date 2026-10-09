@@ -1,0 +1,82 @@
+//! Every integration test of this crate in one binary, so they compile and
+//! link once instead of once per file. Cargo builds this file as one test
+//! target and does not build the files next to it on their own. A new test
+//! file in this folder needs a `mod` line here; `tools/scripts/check_test_layout.py`
+//! fails without one. Helpers that several files use are declared here once,
+//! and the files `use crate::<helper>`.
+
+mod metrics_emit;
+mod module_test;
+mod postgres_allocate_fx;
+mod postgres_audit;
+mod postgres_balance_caches;
+mod postgres_bola;
+mod postgres_chain;
+mod postgres_chargeback_concurrency;
+mod postgres_chargeback_fx;
+mod postgres_chargebacks;
+mod postgres_credit;
+mod postgres_credit_concurrency;
+mod postgres_credit_note;
+mod postgres_cross_tenant;
+mod postgres_debit_note;
+mod postgres_dual_control;
+mod postgres_entry_annotation;
+mod postgres_exception;
+mod postgres_executor;
+mod postgres_fx_revaluation_mode;
+mod postgres_idempotency;
+mod postgres_inquiry;
+mod postgres_invoice_post;
+mod postgres_invoice_post_fx;
+mod postgres_journal;
+mod postgres_manual_adjustment;
+mod postgres_migration_idempotency;
+mod postgres_payer_state;
+mod postgres_payment_concurrency;
+mod postgres_payment_returns;
+mod postgres_payments;
+mod postgres_period_close;
+mod postgres_period_guard;
+mod postgres_period_open;
+mod postgres_pii;
+mod postgres_policy_version;
+mod postgres_posting;
+mod postgres_precedence_policy;
+mod postgres_projector;
+mod postgres_provisioning;
+mod postgres_queue;
+mod postgres_queue_concurrency;
+mod postgres_read_surface;
+mod postgres_recognition_build;
+mod postgres_recognition_change;
+mod postgres_recognition_disaggregation;
+mod postgres_recognition_run;
+mod postgres_reconciliation;
+mod postgres_reference;
+mod postgres_refund;
+mod postgres_refund_dispute_hold;
+mod postgres_refund_fx;
+mod postgres_retention;
+mod postgres_revaluation_fx;
+mod postgres_scale_lock;
+mod postgres_schema;
+mod postgres_settlement_return_fx;
+mod postgres_tieout;
+mod rest_adjustments;
+mod rest_audit;
+mod rest_credit;
+mod rest_disputes;
+mod rest_journal_entries;
+mod rest_payments;
+mod rest_provisioning;
+mod rest_recognition;
+mod rest_refunds;
+mod sqlite_adjustment_repo;
+mod sqlite_chain_state;
+mod sqlite_debit_note_repo;
+mod sqlite_payment_refund_cap;
+mod sqlite_reconciliation_lifecycle;
+mod sqlite_refund_repo;
+mod sqlite_repo;
+mod sqlite_scale_resolver;

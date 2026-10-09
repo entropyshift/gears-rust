@@ -1,5 +1,5 @@
 //! Pure quarantine and dialect-pin tests; worker coverage is in
-//! `tests/quarantine_test.rs`.
+//! `tests/integration/quarantine_test.rs`.
 
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 

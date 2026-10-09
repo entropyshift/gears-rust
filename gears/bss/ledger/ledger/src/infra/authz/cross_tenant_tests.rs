@@ -2,7 +2,7 @@
 //! degraded-fallback `subtree_read_scope`, the `TargetScope` value, and the
 //! shared `resolve_action_scope` elevation contract (branch order). The
 //! transaction-bound branches (`resolve_read_scope`) need a database and are
-//! exercised by `tests/postgres_cross_tenant.rs`.
+//! exercised by `tests/integration/postgres_cross_tenant.rs`.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use toolkit_db::secure::AccessScope;

@@ -464,7 +464,7 @@ async fn the_list_refuses_what_it_does_not_publish() {
 }
 
 /// `q` is a case-insensitive substring of five columns, taken literally; `SQLite` folds ASCII
-/// only (Postgres folds Unicode: `tests/postgres_sku_list.rs`).
+/// only (Postgres folds Unicode: `tests/integration/postgres_sku_list.rs`).
 #[tokio::test]
 async fn q_is_a_case_insensitive_literal_substring_of_five_columns() {
     let d = Door::new().await;

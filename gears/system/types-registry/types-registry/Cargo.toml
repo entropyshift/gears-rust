@@ -10,7 +10,6 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
-autotests = false
 
 [lints]
 workspace = true
@@ -114,8 +113,3 @@ tracing-subscriber = { workspace = true }
 time = { workspace = true, features = ["macros"] }
 # Builds test `OutboxMessage` timestamps.
 chrono = { workspace = true }
-
-# Every tests/*.rs in one binary; see tests/integration.rs.
-[[test]]
-name = "integration"
-path = "tests/integration.rs"

@@ -1,6 +1,6 @@
 //! Unit tests for the typed annotation overlay's pre-write screen + the
 //! `AnnotationTarget` parse. The transactional upsert/audit path is exercised
-//! end-to-end in `tests/postgres_entry_annotation.rs` (testcontainers).
+//! end-to-end in `tests/integration/postgres_entry_annotation.rs` (testcontainers).
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
 use super::{AnnotationService, AnnotationTarget};

@@ -3,7 +3,6 @@ name = "cf-gears-bss-products"
 edition.workspace = true
 license.workspace = true
 description = "BSS Product & SKU Registry gear: the catalog authoring and publish engine"
-autotests = false
 
 [lib]
 name = "bss_products"
@@ -180,7 +179,7 @@ tower = { workspace = true }
 # `tokio::sync::Notify` while the other contends, which is what makes the race
 # an observed sequence rather than a coin toss.
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
-# The Postgres testcontainers harness (`tests/pg_support/`), adopted from the
+# The Postgres testcontainers harness (`tests/integration/pg_support/`), adopted from the
 # sibling pricing gear rather than invented. Tests reach `testcontainers` items
 # through the `testcontainers_modules::testcontainers` re-export, so the bare
 # `testcontainers` crate is not a direct dep. It carries what the `SQLite`
@@ -197,8 +196,3 @@ tempfile = { workspace = true }
 # own harness (`test_support::EventBrokerHarness`), as pricing's bound-producer suite does. A mock
 # accepted subject types the real ingest refuses (the sync of 2026-09-29).
 cf-gears-event-broker = { path = "../../../system/event-broker/event-broker", features = ["test-utils"] }
-
-# Every tests/*.rs in one binary; see tests/integration.rs.
-[[test]]
-name = "integration"
-path = "tests/integration.rs"

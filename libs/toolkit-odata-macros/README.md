@@ -135,8 +135,8 @@ pub mod user {
 
 The crate includes comprehensive tests:
 
-- Unit tests in `tests/odata_schema.rs`
-- Compile-time tests using `trybuild` in `tests/compile_tests.rs`
+- Unit tests in `tests/integration/odata_schema.rs`
+- Compile-time tests using `trybuild` in `tests/integration/compile_tests.rs`
 - UI tests for both passing and failing cases
 
 Run tests with:

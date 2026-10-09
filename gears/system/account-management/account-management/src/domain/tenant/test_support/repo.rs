@@ -782,7 +782,7 @@ impl TenantRepo for FakeTenantRepo {
         // and the `status eq …` predicate exactly as in the fake
         // `list_children`. Richer `$filter` shapes, `$orderby` and
         // cursors are ignored here and covered on the real DB by
-        // `tests/list_descendants_integration.rs`.
+        // `tests/integration/list_descendants_integration.rs`.
         let state = self.state.lock().expect("lock");
         let parent_scope = visible_ids_for(&state, visible);
         let row_scope = visible_ids_for(&state, enumeration);
@@ -2099,7 +2099,7 @@ mod repo_contract_tests {
 /// same fence on the in-memory mock so service-layer regressions
 /// (anything that depends on the trait contract — retention pipeline,
 /// reaper, single-flight gate) trip locally without requiring the
-/// real-DB integration scaffold from `tests/retention_integration.rs`.
+/// real-DB integration scaffold from `tests/integration/retention_integration.rs`.
 /// A SQL-level test for the same predicate is to be added in that
 /// file once the testcontainers scaffold lands.
 #[cfg(test)]

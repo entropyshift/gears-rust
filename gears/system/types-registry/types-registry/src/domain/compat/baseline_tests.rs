@@ -1,5 +1,5 @@
 //! Pure baseline selection and verdict tests. Worker coverage is in
-//! `tests/compat_test.rs`.
+//! `tests/integration/compat_test.rs`.
 
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 

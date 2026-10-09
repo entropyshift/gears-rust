@@ -1,4 +1,6 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
+// A test binary of its own, outside tests/integration/: src/digest.rs names
+// `crate::Digest` and friends, which only this file's root provides.
 // Compile the private encoder as a test module; no untyped production SDK door is exported.
 #[allow(dead_code)]
 #[path = "../src/digest.rs"]

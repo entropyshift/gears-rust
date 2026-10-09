@@ -35,7 +35,7 @@
 //! literal `FOR UPDATE` (§4.2/§7) is deferred until `SecureORM` exposes a locking
 //! read; until then SERIALIZABLE is the load-bearing invariant. The
 //! `concurrent_posts_form_linear_chain` integration test
-//! (`tests/postgres_chain.rs`) locks this no-fork behavior in CI.
+//! (`tests/integration/postgres_chain.rs`) locks this no-fork behavior in CI.
 
 use sea_orm::sea_query::Expr;
 use sea_orm::{ColumnTrait, Condition, EntityTrait};

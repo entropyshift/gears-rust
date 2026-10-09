@@ -11,7 +11,6 @@ repository.workspace = true
 readme = "README.md"
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["web-programming"]
-autotests = false
 
 [lib]
 name = "github_mirror"
@@ -68,8 +67,3 @@ uuid = { workspace = true }
 toolkit-odata = { workspace = true, features = ["with-utoipa"] }
 toolkit-security = { workspace = true }
 async-trait = { workspace = true }
-
-# Every tests/*.rs in one binary; see tests/integration.rs.
-[[test]]
-name = "integration"
-path = "tests/integration.rs"

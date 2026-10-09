@@ -1,6 +1,6 @@
 //! Unit tests for the `PATCH …/annotation` request DTO + the handler-side
 //! target-kind parse (the DB write is an integration concern, exercised in
-//! `tests/postgres_entry_annotation.rs`).
+//! `tests/integration/postgres_entry_annotation.rs`).
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
 use crate::api::rest::dto::EntryAnnotationRequestDto;

@@ -373,7 +373,7 @@ fn matrix_18_min_fee_is_only_validated() {
     r.min_fee = Some(dec("30"));
     assert!(rules(&r, &[], None).is_empty());
     // `amount_for` takes no fee at all: that the fee is not applied holds by its signature
-    // (PT-08), and resolve serves it as stored (tests/read_contract.rs).
+    // (PT-08), and resolve serves it as stored (tests/integration/read_contract.rs).
 }
 #[test]
 fn matrix_18_amount_package_and_start_invalid() {

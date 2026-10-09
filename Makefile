@@ -887,7 +887,7 @@ coverage-cluster-k8s:
 
 ## Run resource-group gear PostgreSQL smoke tests (Docker required; spins up
 ## its own postgres container via testcontainers -- see
-## gears/system/resource-group/resource-group/tests/pg_smoke_test.rs)
+## gears/system/resource-group/resource-group/tests/integration/pg_smoke_test.rs)
 test-rg-pg: install-tools
 	cargo nextest run -p cf-gears-resource-group --features integration
 

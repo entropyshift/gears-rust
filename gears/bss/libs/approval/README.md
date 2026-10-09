@@ -121,7 +121,7 @@ matter. Authorship, `before` and the reviewer-facing snapshot are not fingerprin
 inputs. Keep informational impact or computation timestamps in the snapshot,
 not in `after`.
 
-The scenarios in `tests/engine_fake.rs` drive the engine through real
+The scenarios in `tests/integration/engine_fake.rs` drive the engine through real
 SQLite toolkit-db transactions with fakes typed over `DbTx<'a>`. They prove the
 runner/lifetime integration and state-machine decisions. The maps do not roll
 back, and simulated contention is not a two-writer test: phase 1c must prove

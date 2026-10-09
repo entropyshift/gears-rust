@@ -17,7 +17,7 @@ async fn columns(db: &DatabaseConnection) -> Vec<String> {
 
 /// The chain up to this migration applies, then 000009 appends `submit_note` once however often
 /// it runs, and its `down` removes it once however often it runs. The upgrade through the real
-/// runner, with units seeded, is `tests/unit_submit_note_migration.rs` and its Postgres twin.
+/// runner, with units seeded, is `tests/integration/unit_submit_note_migration.rs` and its Postgres twin.
 #[tokio::test]
 async fn applies_replays_and_reverts_on_sqlite() {
     let db = Database::connect("sqlite::memory:").await.unwrap();

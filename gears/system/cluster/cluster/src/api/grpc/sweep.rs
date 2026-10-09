@@ -14,7 +14,7 @@
 //! unattached entry behind — **one per renewal interval**, one every 10 s on the
 //! default `ElectionConfig`. Measured before this was written: a follower took the
 //! table from 2 entries to 6 across five 100 ms intervals
-//! (`tests/remote_backends.rs`). Without a sweep that is unbounded growth in a
+//! (`tests/integration/remote_backends.rs`). Without a sweep that is unbounded growth in a
 //! steady state, not merely in a failure mode.
 //!
 //! The same pass covers the case decision 18 was actually written about — a client

@@ -1,6 +1,9 @@
 //! `K3`'s central exit criterion: **a consumer resolving in its own `start` finds
 //! the cluster client already in the hub** (DESIGN.md).
 //!
+//! A test binary of its own, outside tests/integration/: it checks which gears its
+//! binary links, so no other test's gears may be linked in.
+//!
 //! This is the first test in the tree that drives a *consumer* rather than the
 //! cluster gear, and it is deliberately shaped like a Profile 3 process: it links
 //! `cluster-sdk` (through the `cluster` crate, whose lib brings the SDK) but names

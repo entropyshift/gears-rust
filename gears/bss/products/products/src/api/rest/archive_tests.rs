@@ -298,7 +298,7 @@ async fn a_move_to_the_state_a_row_is_in_writes_nothing() {
 
 /// An archived SKU that a pending unit still locks is counted in `archived` only: `in_review`
 /// counts the locked SKUs that are not archived (P-D-263). The Postgres twin is in
-/// `tests/postgres_archive.rs`.
+/// `tests/integration/postgres_archive.rs`.
 #[tokio::test]
 async fn an_archived_locked_sku_is_not_in_review() {
     let tenant = Uuid::new_v4();

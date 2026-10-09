@@ -2,6 +2,10 @@
 #![cfg(feature = "db")]
 
 //! Comprehensive tests for the #[gear] macro with the new registry/builder
+//!
+//! A test binary of its own, outside tests/integration/: it defines test gears, and
+//! the runtime starts every gear linked into a binary, so they would run in the
+//! other tests.
 
 use anyhow::Result;
 use async_trait::async_trait;

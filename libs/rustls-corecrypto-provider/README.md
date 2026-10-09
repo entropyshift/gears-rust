@@ -163,7 +163,7 @@ in our list exist only for (a) the TLS 1.2 path, where they are still
 in widespread use, and (b) webpki certificate-chain validation where
 PKCS#1 v1.5 issuer signatures remain common in PKI today. The
 integration test `tls13_pkcs1_v1_5_certificate_verify_is_rejected`
-(in `tests/handshake_smoke.rs`) pins this contract.
+(in `tests/integration/handshake_smoke.rs`) pins this contract.
 
 Runtime OE-validation is currently macOS-only; Linux + Windows OE
 coverage is verified manually per release (FIPS PRD §9 acceptance
@@ -258,7 +258,7 @@ FIPS-boundary angle).
 
 ### TODO-3 — Cross-implementation interop tests
 
-Current `tests/handshake_smoke.rs` tests our provider against either
+Current `tests/integration/handshake_smoke.rs` tests our provider against either
 `openssl s_server` (client-side) or a rustls server using our own
 provider (server-side). We do **not** yet test our provider against a
 rustls peer using `aws-lc-rs` or `rustls-cng-crypto` as its

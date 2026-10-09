@@ -182,7 +182,7 @@ pub enum TlsConfigError {
 /// Gated on `cfg(all(test, feature = "fips"))` — `cfg(test)` is only set when
 /// compiling the crate's own unit-test target, NOT when compiling the lib for
 /// use by integration tests under `tests/`. The regression test in
-/// `tests/no_crypto_provider_fips.rs` therefore sees a clean process state and
+/// `tests/integration/no_crypto_provider_fips.rs` therefore sees a clean process state and
 /// can still assert `TlsConfigError::NoCryptoProvider`.
 ///
 /// Forced from inside `build_client_config` so every TLS-config-building
@@ -234,7 +234,7 @@ fn build_client_config(
     // (`webpki_roots_client_config`, `native_roots_client_config`, and any
     // future addition). `cfg(test)` is set only for in-crate unit tests, NOT
     // for integration tests under `tests/` — so
-    // `tests/no_crypto_provider_fips.rs` still sees a clean process state.
+    // `tests/integration/no_crypto_provider_fips.rs` still sees a clean process state.
     #[cfg(all(test, feature = "fips"))]
     std::sync::LazyLock::force(&fips_test_provider::INSTALL);
 

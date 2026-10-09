@@ -200,7 +200,7 @@ fn due_pending_segment_projects_into_releasable() {
 
 // ── NOTE — Group F4 testcontainers coverage (NOT in this pure-unit file) ──
 // The integration/concurrency tests for the release + reversal live in
-// `tests/postgres_recognition_run.rs` (Group F4, design §11), driving the REAL
+// `tests/integration/postgres_recognition_run.rs` (Group F4, design §11), driving the REAL
 // `RecognitionRunService` against a testcontainer Postgres. They cover:
 //   * atomic release: `DR CL / CR Revenue` + the `recognized_minor += amount`
 //     bump + the segment `→ DONE` stamp all commit in ONE txn;

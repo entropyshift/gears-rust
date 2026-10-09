@@ -11,7 +11,6 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears", "resource-group"]
 categories = ["web-programming"]
 metadata.docs.rs.all-features = true
-autotests = false
 
 [lib]
 name = "resource_group"
@@ -23,7 +22,7 @@ workspace = true
 default = ["odata"]
 odata = []
 
-# Gates the PostgreSQL smoke suite (tests/pg_smoke_test.rs), needs Docker:
+# Gates the PostgreSQL smoke suite (tests/integration/pg_smoke_test.rs), needs Docker:
 # it spins up a real Postgres via `testcontainers` to run the set-based
 # `INSERT ... SELECT` / derived-table `DELETE` / chunked-delete statements
 # against a backend SQLite can't tell apart from ordinary row-by-row SQL.
@@ -90,10 +89,10 @@ opentelemetry_sdk = { workspace = true, features = ["metrics", "testing"] }
 # `secure::in_transaction_for_testing`, which the DB-behaviour audit's
 # `QueryRecorder` needs. Test-only: the production dependency above pulls in
 # toolkit-db without it.
-# "pg" (on top of "sqlite") lets tests/pg_smoke_test.rs connect to a real
+# "pg" (on top of "sqlite") lets tests/integration/pg_smoke_test.rs connect to a real
 # PostgreSQL via connect_db() when built with --features integration.
 toolkit-db = { workspace = true, features = ["sqlite", "pg", "test-support"] }
-# PostgreSQL smoke suite (tests/pg_smoke_test.rs) -- brings up a real
+# PostgreSQL smoke suite (tests/integration/pg_smoke_test.rs) -- brings up a real
 # PostgreSQL via Docker. Both already workspace dependencies (root
 # Cargo.toml), used here as test-only dev-dependencies.
 testcontainers = { workspace = true }
@@ -110,8 +109,3 @@ types-registry-sdk = { workspace = true, features = ["test-util"] }
 # `toolkit_canonical_errors::CanonicalError` don't rely on it being pulled in
 # transitively via the normal (`[dependencies]`) build graph.
 toolkit-canonical-errors = { workspace = true }
-
-# Every tests/*.rs in one binary; see tests/integration.rs.
-[[test]]
-name = "integration"
-path = "tests/integration.rs"

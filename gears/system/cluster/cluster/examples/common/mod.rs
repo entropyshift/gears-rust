@@ -5,7 +5,7 @@
 //! [`MemCacheBackend`] is a functional, single-process [`ClusterCacheBackend`]
 //! that lets every showcase example run with no external infrastructure (no
 //! Postgres/Redis/K8s). It mirrors the contract smoke-test stub
-//! (`tests/common`): one state map behind one mutex, one monotonic per-key
+//! (`tests/integration/common`): one state map behind one mutex, one monotonic per-key
 //! version source, one ordered channel per watcher, and a background sweeper
 //! that expires TTL'd entries. It makes no attempt at the durability or
 //! partition tolerance a real backend needs — production backends ship as

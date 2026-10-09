@@ -3,7 +3,6 @@ name = "cf-gears-bss-coord"
 edition.workspace = true
 license.workspace = true
 description = "Shared BSS coordination primitives — a DB-backed distributed lease (single-active job/run guard), ported from the account-management lease pattern. Works entirely within the existing SecureORM API (unscoped `coord_leases` table via `AccessScope::allow_all()`); no toolkit changes."
-autotests = false
 
 [lib]
 name = "coord"
@@ -46,7 +45,7 @@ async-trait = { workspace = true }
 [dev-dependencies]
 # Integration tests drive the real `LeaseManager`/`LeaseGuard`. The SQLite
 # in-crate tests run on an in-memory `Db`; the Postgres fence test
-# (`tests/postgres_fence.rs`) needs a real backend (SSI/snapshot semantics
+# (`tests/integration/postgres_fence.rs`) needs a real backend (SSI/snapshot semantics
 # SQLite cannot model) via testcontainers, plus the multi-thread runtime to
 # drive the held ack tx and the peer steal concurrently.
 tokio = { workspace = true, features = [
@@ -58,8 +57,3 @@ tokio = { workspace = true, features = [
 ] }
 testcontainers-modules = { workspace = true }
 test-containers = { workspace = true }
-
-# Every tests/*.rs in one binary; see tests/integration.rs.
-[[test]]
-name = "integration"
-path = "tests/integration.rs"

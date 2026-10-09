@@ -11,7 +11,6 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
-autotests = false
 
 [lib]
 name = "redis_cluster_plugin"
@@ -107,7 +106,7 @@ uuid = { workspace = true, features = ["v4"] }
 # every instance contending for one name retries on the same deterministic
 # schedule, turning a hot lock into synchronized fleet-wide `SET NX` bursts.
 rand = { workspace = true }
-# Layer 3 testcontainers fixtures (`tests/common/mod.rs`, TESTING.md §4.1) —
+# Layer 3 testcontainers fixtures (`tests/integration/common/mod.rs`, TESTING.md §4.1) —
 # optional, only pulled in by `--features integration`. See the `[features]`
 # doc above for why these live here rather than `[dev-dependencies]`.
 testcontainers = { workspace = true, optional = true }
@@ -124,7 +123,7 @@ tokio = { workspace = true, features = ["macros"] }
 # readback `postgres-cluster-plugin` uses for its own plugin-local gauge.
 opentelemetry_sdk = { workspace = true, features = ["testing"] }
 
-# `tests/common/mod.rs` installs `tracing` subscribers so the Layer 3 scenarios
+# `tests/integration/common/mod.rs` installs `tracing` subscribers so the Layer 3 scenarios
 # can assert on the DESIGN.md §9 log events. Process-global (`set_global_default`)
 # for the events emitted from spawned tasks — the eviction WARN and the watch
 # reset come off the subscriber fan-out, which `tracing-test`'s thread-local
@@ -134,7 +133,7 @@ opentelemetry_sdk = { workspace = true, features = ["testing"] }
 tracing-subscriber = { workspace = true }
 # Layer 2 conformance suite (TESTING.md §3): the same parametrized suites every
 # other backend runs, wired against this plugin's real Redis-backed
-# cache/lock/leader in `tests/conformance.rs`.
+# cache/lock/leader in `tests/integration/conformance.rs`.
 #
 # Path-only — no version, and not `workspace = true` — because it is an internal
 # dev-dep inside the cluster dependency cycle and so must not pin its own release
@@ -161,15 +160,12 @@ cluster = { package = "cf-gears-cluster", path = "../../cluster" }
 # provider must resolve independently of which backend serves the cache.
 cf-gears-standalone-cluster-plugin = { path = "../standalone-cluster-plugin" }
 
-# Layer 2 (conformance) and Layer 3 (testcontainers) test binaries all require a
-# real Docker daemon, so each is gated behind `required-features =
-# ["integration"]` (TESTING.md §7). `cargo test -p cf-redis-cluster-plugin` with
-# no flag then skips *building* these binaries entirely, rather than building them
-# and skipping the test functions inside — which is what keeps a default test run
-# free of both Docker and the testcontainers dependency tree.
-
-# Every tests/*.rs in one binary; see tests/integration.rs.
+# Layer 2 (conformance) and Layer 3 (testcontainers) tests all require a real
+# Docker daemon, so their test binary (tests/integration/) is gated behind
+# `required-features = ["integration"]` (TESTING.md §7). `cargo test -p
+# cf-redis-cluster-plugin` with no flag then skips *building* it entirely, rather
+# than building it and skipping the test functions inside — which is what keeps a
+# default test run free of both Docker and the testcontainers dependency tree.
 [[test]]
 name = "integration"
-path = "tests/integration.rs"
 required-features = ["integration"]

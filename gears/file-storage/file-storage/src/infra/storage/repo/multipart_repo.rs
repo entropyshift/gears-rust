@@ -145,7 +145,7 @@ impl MultipartRepo {
     ///
     /// `#[doc(hidden)]` rather than a `test-support` Cargo feature: this
     /// method is called from the external integration-test crate
-    /// `tests/cleanup_test.rs`, so `#[cfg(test)]` alone would not reach it,
+    /// `tests/integration/cleanup_test.rs`, so `#[cfg(test)]` alone would not reach it,
     /// and gating it behind a non-default feature would make the standard
     /// `cargo test -p cf-gears-file-storage` command fail to compile that
     /// test (or silently skip it via `required-features`) unless every

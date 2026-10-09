@@ -349,7 +349,7 @@ This is a design requirement, not an optional detail: an implementer who assumes
 ### Confirmation
 
 Done ([`cte_tests.rs`](../../../../libs/toolkit-db/src/secure/cte_tests.rs),
-[`tests/sqlite/secure_cte.rs`](../../../../libs/toolkit-db/tests/sqlite/secure_cte.rs),
+[`tests/integration/sqlite/secure_cte.rs`](../../../../libs/toolkit-db/tests/integration/sqlite/secure_cte.rs),
 [`tests/ui/fail/cte_from_unscoped.rs`](../../../../libs/toolkit-db/tests/ui/fail/cte_from_unscoped.rs)):
 
 - Scope present in the body of **every** CTE, asserted against the built SQL per backend

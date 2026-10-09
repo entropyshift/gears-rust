@@ -491,7 +491,7 @@ mod tests {
 
     // The "never a second attempt" guarantee that `disabled()` carries is
     // pinned behaviourally by `reconnect_is_derived_from_the_open_shape_not_from_client_config`
-    // (tests/rest_client_codegen.rs), which counts real server connections on
+    // (tests/integration/rest_client_codegen.rs), which counts real server connections on
     // the fallible-open path and asserts exactly one. A unit test that merely
     // read back `disabled()`'s fields couldn't fail unless struct construction
     // itself broke, so it isn't restated here.

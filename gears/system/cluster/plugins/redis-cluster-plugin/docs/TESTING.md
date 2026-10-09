@@ -113,7 +113,7 @@ about the whole of `src/`.
 ## 3. Layer 2 — Conformance Suite
 
 `cf-gears-cluster-conformance` is a `[dev-dependencies]` entry;
-`tests/conformance.rs` wires the layer-3 container fixture into every entry point.
+`tests/integration/conformance.rs` wires the layer-3 container fixture into every entry point.
 Each suite goes through one `run_*_conformance(factory, time)` call whose async
 factory returns a `cluster_conformance::ScenarioBackend` that **owns the plugin
 handle** and stops it via teardown before the next scenario is built — mandatory,
@@ -121,7 +121,7 @@ not cosmetic: `RedisClusterHandle`/`RedisLockHandle` panic on drop if never
 `stop()`ed (DESIGN §3.2's ADR-006 guard).
 
 ```rust
-// tests/conformance.rs
+// tests/integration/conformance.rs
 
 #[tokio::test]
 async fn cache_conformance() {
@@ -172,7 +172,7 @@ has:
 **The leader suite runs against a single-node durable container, not the default
 one.** `CasBasedLeaderElectionBackend::new` is the strict constructor and rejects an
 `EventuallyConsistent` cache, so on the default container it would fail to construct
-at all. `tests/common` therefore provides a second fixture
+at all. `tests/integration/common` therefore provides a second fixture
 (`start_redis_durable()` — `appendonly yes`, `appendfsync always`, no replicas) whose
 cache declares `Linearizable`, and the leader suite uses it. The *negative* half —
 that the strict constructor really does refuse the ordinary container's cache — is

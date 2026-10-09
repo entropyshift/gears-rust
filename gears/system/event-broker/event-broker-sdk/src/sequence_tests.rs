@@ -2,7 +2,7 @@
 //!
 //! What a sequence must *not* do is asserted by a compile-fail case rather
 //! than here - see `tests/trybuild/sequence/no_arithmetic.rs`, driven from
-//! `tests/sdk/sequence.rs`. A runtime test cannot prove the absence of an
+//! `tests/integration/sdk/sequence.rs`. A runtime test cannot prove the absence of an
 //! operator; only the compiler can.
 
 use crate::sequence::Sequence;

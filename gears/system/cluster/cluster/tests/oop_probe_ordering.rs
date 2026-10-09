@@ -1,6 +1,9 @@
 //! `D1`'s probe-ordering criterion, driven rather than described
 //! (DESIGN.md).
 //!
+//! A test binary of its own, outside tests/integration/: it checks which gears its
+//! binary links, so no other test's gears may be linked in.
+//!
 //! The criterion is that `cluster-oop` **binds probes before `start`** and serves
 //! `/healthz`, `/readyz`, `/health` and `/openapi.json`. None of that mechanism is
 //! cluster's code — it is `run_oop_serving`'s — so this file asserts the property

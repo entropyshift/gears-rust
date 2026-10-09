@@ -1,7 +1,7 @@
 //! Unit tests for the pure evidence-ref-reuse set-check
 //! ([`first_unreused_tuple`]) backing [`PolicyVersionGuard`] (§4.6, AC #15).
 //! The DB-touching `check` is exercised end-to-end in
-//! `tests/postgres_policy_version.rs`.
+//! `tests/integration/postgres_policy_version.rs`.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use super::*;

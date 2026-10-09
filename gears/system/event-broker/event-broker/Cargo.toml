@@ -12,7 +12,6 @@ categories = ["asynchronous"]
 metadata.docs.rs.all-features = true
 
 autobins = false
-autotests = false
 
 [features]
 # Exposes `test_support` (the in-process `EventBrokerHarness` + `test_router`)
@@ -163,7 +162,7 @@ tokio = { workspace = true, features = ["macros", "rt", "process"] }
 tower = { workspace = true }
 http = { workspace = true }
 tracing-test = { workspace = true }
-# `tests/standalone_integration_tests.rs` (design.md D8, task group 10) -
+# `tests/integration/standalone_integration_tests.rs` (design.md D8, task group 10) -
 # spawns the real `[[bin]]` as a subprocess and drives it over real HTTP,
 # rather than in-process mocks.
 reqwest = { workspace = true, features = ["json", "stream"] }
@@ -175,8 +174,3 @@ types-registry-sdk = { workspace = true, features = ["test-util"] }
 # `cf-gears-standalone-cluster-plugin` moved to [dependencies] above (also
 # needed by src/bin/server.rs); regular dependencies are available to tests
 # too, so no separate dev-dependency entry is needed here anymore.
-
-# Every tests/*.rs in one binary; see tests/integration.rs.
-[[test]]
-name = "integration"
-path = "tests/integration.rs"

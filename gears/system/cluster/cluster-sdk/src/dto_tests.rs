@@ -301,7 +301,7 @@ fn every_awkward_wire_type_produces_a_schema() {
 
 /// The acknowledgement responses carry the registry generation rather than being
 /// empty, because `toolkit-contract-protogen` rejects a message with no fields.
-/// `tests/protogen_shape.rs` is what proves the projection; this pins the field so
+/// `tests/integration/protogen_shape.rs` is what proves the projection; this pins the field so
 /// it cannot be "tidied away" back into an empty struct.
 #[test]
 fn acknowledgement_responses_carry_the_registry_generation() {

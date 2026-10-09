@@ -249,22 +249,24 @@ re-points under CI with nothing in the diff, which is the drift this crate exist
 
 Cargo builds every `tests/*.rs` file as its own binary, and each one links the
 whole crate and its dependencies. A crate with more than one test file builds
-them as one binary instead:
+them as one binary instead, with no change to `Cargo.toml`:
 
-- `tests/integration.rs` loads each test file as a module
-  (`#[path = "foo.rs"] mod foo;`), and `Cargo.toml` sets `autotests = false`.
-- A helper module that several files use (`tests/common/mod.rs`) is declared
-  once there; the files `use crate::common;`.
+- The test files live in `tests/integration/`. Cargo builds
+  `tests/integration/main.rs` as one test target named `integration`, and does
+  not build the files next to it on their own.
+- `main.rs` loads each test file as a module (`mod foo;`).
+- A helper module that several files use (`tests/integration/common/mod.rs`)
+  is declared once there; the files `use crate::common;`.
 - Run one file's tests with a name filter:
   `cargo nextest run -p <crate> -E 'test(/^foo::/)'`, or
   `cargo test -p <crate> --test integration foo::`.
 
-Add a new test file to `tests/integration.rs`. CI runs
-`tools/scripts/check_test_layout.py`, which fails for a file that is not loaded.
-A file that needs a binary of its own stays a separate `[[test]]` in
-`Cargo.toml`: one that defines gears or checks which gears are linked (the
-runtime finds every gear linked into a binary), or one that needs its own
-crate root.
+Add a new test file to `tests/integration/main.rs`. CI runs
+`tools/scripts/check_test_layout.py`, which fails for a file in that folder
+that is not loaded. A file that needs a binary of its own stays at the top of
+`tests/`: one that defines gears or checks which gears are linked (the runtime
+finds every gear linked into a binary), or one that needs its own crate root.
+Compile-fail inputs for `trybuild` (`tests/ui/`) stay where they are too.
 
 ## 5. End-to-End (E2E) Tests
 

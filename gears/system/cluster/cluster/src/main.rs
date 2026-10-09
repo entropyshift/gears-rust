@@ -15,7 +15,7 @@
 //! a code review asserting **no registration or dependency retry loop appears in a
 //! gear's own code**. There is no `loop`, no `retry`, no backoff and no sleep in
 //! this file or in `registered_gears.rs`, and the gear crate holds none either.
-//! `tests/oop_bootstrap.rs` carries the same assertion mechanically over the
+//! `tests/integration/oop_bootstrap.rs` carries the same assertion mechanically over the
 //! sources so a later edit cannot reintroduce one quietly.
 //!
 //! # Deployment profile

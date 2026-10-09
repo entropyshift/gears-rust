@@ -1,6 +1,6 @@
 //! Pure-fn unit tests for the audit-pack CSV encoder (DE1101: tests live in the
 //! sibling `_tests.rs` hooked via `#[path]`). The scoped DB reads are covered by
-//! the Postgres integration test `tests/postgres_inquiry.rs`.
+//! the Postgres integration test `tests/integration/postgres_inquiry.rs`.
 
 use super::{CSV_HEADER, csv_escape};
 

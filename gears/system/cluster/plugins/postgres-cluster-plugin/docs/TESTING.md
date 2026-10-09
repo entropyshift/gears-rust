@@ -66,12 +66,12 @@ No SQL is executed in layer-1 tests. SQL logic is covered at layer 3.
 
 ## 3. Layer 2 — Conformance Suite
 
-`cf-gears-cluster-conformance` is added as a `[dev-dependencies]` entry. The integration test file `tests/conformance.rs` wires a real Postgres container (via the layer-3 fixture below) into every conformance entry point:
+`cf-gears-cluster-conformance` is added as a `[dev-dependencies]` entry. The integration test file `tests/integration/conformance.rs` wires a real Postgres container (via the layer-3 fixture below) into every conformance entry point:
 
 Each suite goes through one shared `run_*_conformance(factory, time)` entry point. `factory` is an **async** factory the runner calls once per scenario; it returns a [`cluster_conformance::ScenarioBackend`] that **owns the plugin handle** and tears it down via `stop()` before the next scenario is built. Retaining the handle is mandatory, not cosmetic: `PostgresClusterHandle`/`PostgresLockHandle` panic on `drop` if they were never `stop()`ed (a debug guard against leaking pools, LISTEN connections, and reaper tasks). Returning only `handle.cache()`/`handle.lock()` and dropping the handle would trip that panic and abandon background-task teardown — so the factory must move the handle into `ScenarioBackend::with_teardown`.
 
 ```rust
-// tests/conformance.rs
+// tests/integration/conformance.rs
 
 use cluster::defaults::CasBasedLeaderElectionBackend;
 use cluster_conformance::{
@@ -143,7 +143,7 @@ async fn leader_conformance() {
 }
 ```
 
-Time-sensitive scenarios pass `TimeControl::Real` (a bounded real sleep), not virtual time: against this plugin's real `sqlx::PgPool` a paused/auto-advancing clock spuriously fires sqlx's own acquire timeout. In-memory/fixture callers still pass `TimeControl::Virtual`. The runner isolates each scenario into its own Postgres schema on a shared container; see the module docs in `tests/conformance.rs` for the full rationale.
+Time-sensitive scenarios pass `TimeControl::Real` (a bounded real sleep), not virtual time: against this plugin's real `sqlx::PgPool` a paused/auto-advancing clock spuriously fires sqlx's own acquire timeout. In-memory/fixture callers still pass `TimeControl::Virtual`. The runner isolates each scenario into its own Postgres schema on a shared container; see the module docs in `tests/integration/conformance.rs` for the full rationale.
 
 Before this turn, `leader_conformance` was missing entirely — only the cache and lock suites were wired, even though `run_leader_conformance` (`SC-LEAD-001..007`) already exists in `cluster-conformance` and this plugin exposes that primitive (SDK-default-derived, §6). There was no reason not to run it; it's added above.
 
@@ -162,7 +162,7 @@ Before this turn, `leader_conformance` was missing entirely — only the cache a
 ### 4.1 Container Setup
 
 ```rust
-// tests/common/mod.rs
+// tests/integration/common/mod.rs
 
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;

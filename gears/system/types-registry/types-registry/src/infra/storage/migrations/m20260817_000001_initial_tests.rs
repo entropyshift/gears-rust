@@ -1,5 +1,5 @@
 //! Per-backend statement-list tests. `SQLite` is exercised for real by
-//! `tests/migration_test.rs`; Postgres and `MySQL` need a container, so what is
+//! `tests/integration/migration_test.rs`; Postgres and `MySQL` need a container, so what is
 //! pinned here is what a container run cannot tell us cheaply and what silently
 //! rots otherwise: that all three lists cover the same tables and the same four
 //! indexes, that neither federation table leaks in, and that each dialect's

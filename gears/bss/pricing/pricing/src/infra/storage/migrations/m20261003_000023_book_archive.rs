@@ -67,7 +67,7 @@ const PG_DOWN: &[&str] = &[
 ];
 
 /// The entry's reference state CHECK before this migration and after it; each is spelled once
-/// more in the Postgres statements (`tests/pure_model.rs` pins the widened one on both).
+/// more in the Postgres statements (`tests/integration/pure_model.rs` pins the widened one on both).
 const STATES_BEFORE: &str =
     "CHECK (reference_state IN ('confirmation_pending','confirmed','lost'))";
 const STATES_AFTER: &str =

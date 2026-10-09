@@ -395,7 +395,7 @@ pub async fn try_acquire_buffer_slot(service: &mut BufferedService) -> Result<()
 // `HttpClientBuilder::build()` rejects `AllowInsecureHttp` outright (see
 // issue #1934), so the whole gear cannot compile/run there. The FIPS-mode
 // contract is covered by the integration test in
-// `tests/fips_default_transport.rs` and by `tests/no_crypto_provider_fips.rs`.
+// `tests/integration/fips_default_transport.rs` and by `tests/integration/no_crypto_provider_fips.rs`.
 //
 // The two cfg gates are kept separate — `#[cfg(test)]` then
 // `#[cfg(not(feature = "fips"))]` — so that clippy's test-aware lint

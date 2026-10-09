@@ -218,7 +218,7 @@ impl tracing_subscriber::fmt::MakeWriter<'_> for SharedWriter {
 /// Installs a thread-local WARN capture for the current test, returning its
 /// uninstall guard and buffer.
 ///
-/// The Layer-1 counterpart of `tests/common`'s `scoped_capture`, and it exists
+/// The Layer-1 counterpart of `tests/integration/common`'s `scoped_capture`, and it exists
 /// for the assertions a recording [`ClusterMetrics`] cannot make: whether a path
 /// that moved a counter also *said* so. A counter and a log stream that disagree
 /// leave an operator with a reset they can see in the metric and no line
@@ -227,7 +227,7 @@ impl tracing_subscriber::fmt::MakeWriter<'_> for SharedWriter {
 /// Thread-local rather than global, so one test's capture cannot see another's
 /// events. That is sufficient here because the events under test are emitted
 /// inline by a directly-awaited function rather than from a spawned task — the
-/// reason `tests/common` needs a global sink as well.
+/// reason `tests/integration/common` needs a global sink as well.
 ///
 /// A process-global sink is installed first all the same, and idempotently,
 /// because `tracing` caches each callsite's interest process-wide the first time

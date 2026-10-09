@@ -9,7 +9,6 @@ repository.workspace = true
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["web-programming"]
 metadata.docs.rs.all-features = true
-autotests = false
 
 [lib]
 name = "account_management"
@@ -108,7 +107,7 @@ tower = { workspace = true }
 http-body-util = { workspace = true }
 proptest = "1.5"
 # The users route driven against the real static IdP plugin
-# (`tests/api_users_test.rs`): what the route admits is what the plugin
+# (`tests/integration/api_users_test.rs`): what the route admits is what the plugin
 # must be able to evaluate.
 static-idp-plugin = { package = "cf-gears-static-idp-plugin", path = "../plugins/static-idp-plugin" }
 # `no-env-filter` accepts events with `target: "am.*"` (otherwise the
@@ -124,8 +123,3 @@ opentelemetry_sdk = { workspace = true, features = ["testing"] }
 testcontainers = { workspace = true }
 testcontainers-modules = { workspace = true }
 test-containers = { workspace = true }
-
-# Every tests/*.rs in one binary; see tests/integration.rs.
-[[test]]
-name = "integration"
-path = "tests/integration.rs"

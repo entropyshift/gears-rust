@@ -123,7 +123,7 @@ impl MagikaInitError {
 ///
 /// # Visibility
 ///
-/// `#[doc(hidden)] pub` only so `tests/magika_timeout_tests.rs` can drive this
+/// `#[doc(hidden)] pub` only so `tests/integration/magika_timeout_tests.rs` can drive this
 /// exact path; an integration test cannot reach `pub(crate)`. Not public API.
 ///
 /// # Errors

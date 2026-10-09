@@ -127,7 +127,7 @@ impl DialectDrift {
 /// `Unknown` verdict. Equivalent Draft-07 spellings are accepted here, and since
 /// gts-rust 0.12.1 the library accepts them too
 /// (<https://github.com/GlobalTypeSystem/gts-rust/issues/120>), so they no longer
-/// surface as `compatibility_undecidable`. `tests/quarantine_test.rs` covers this.
+/// surface as `compatibility_undecidable`. `tests/integration/quarantine_test.rs` covers this.
 ///
 /// # Errors
 /// [`DialectDrift`] carrying both declared values.

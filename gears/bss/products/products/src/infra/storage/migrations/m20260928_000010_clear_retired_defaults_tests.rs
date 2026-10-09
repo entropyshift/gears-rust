@@ -22,7 +22,7 @@ async fn categories(db: &DatabaseConnection) -> Vec<String> {
 /// The chain up to this migration applies; 000010 clears the retired default once however often
 /// it runs, keeps the active default and the retired category that is not the default, and its
 /// `down` changes nothing. The upgrade through the real runner, with categories seeded by bound
-/// values, is `tests/retired_default_migration.rs` and its Postgres twin.
+/// values, is `tests/integration/retired_default_migration.rs` and its Postgres twin.
 #[tokio::test]
 async fn clears_a_retired_default_once_and_reverts_to_nothing_on_sqlite() {
     let db = Database::connect("sqlite::memory:").await.unwrap();

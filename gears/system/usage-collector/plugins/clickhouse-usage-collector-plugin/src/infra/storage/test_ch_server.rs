@@ -2,7 +2,7 @@
 //! test.
 //!
 //! Shared by both live tiers: the crate's own `#[cfg(test)]` modules reach it as
-//! `crate::infra::storage::test_ch_server`, and `tests/common/mod.rs` compiles
+//! `crate::infra::storage::test_ch_server`, and `tests/integration/common/mod.rs` compiles
 //! this same file through `#[path]`. It therefore names no crate item — only
 //! `testcontainers`, `clickhouse`, `tokio` and `test_containers`.
 //!
@@ -18,7 +18,7 @@
 //!
 //! # Named, reused, owned by a parked thread
 //!
-//! The shape is `gears/bss/pricing/pricing/tests/pg_support/mod.rs`; see its
+//! The shape is `gears/bss/pricing/pricing/tests/integration/pg_support/mod.rs`; see its
 //! module doc for the long form of each point.
 //!
 //! - `#[tokio::test]` builds one runtime per test, and a `ContainerAsync`

@@ -11,7 +11,6 @@ readme = "README.md"
 keywords = ["constructorfabric", "cf-gears"]
 categories = ["development-tools"]
 metadata.docs.rs.all-features = true
-autotests = false
 
 [lib]
 name = "cluster"
@@ -40,7 +39,7 @@ workspace = true
 
 [features]
 # Gates the Docker-backed mixed-backend routing test
-# (`tests/mixed_backend_integration.rs`), mirroring the Postgres plugin's own
+# (`tests/integration/mixed_backend_integration.rs`), mirroring the Postgres plugin's own
 # `integration` feature so a default `cargo test` never requires a Docker
 # daemon. Run with `cargo test -p cf-gears-cluster --features integration`.
 integration = ["dep:testcontainers", "dep:testcontainers-modules"]
@@ -93,7 +92,7 @@ clap = { workspace = true }
 # `use grpc_hub as _;` in `registered_gears.rs` (and its counterpart in a
 # monolith's own file) forces the crate to be linked and its `inventory` entry
 # to exist - but it does make the requirement structural rather than documentary,
-# and it is what lets `tests/oop_bootstrap.rs` drive a hub-complete process.
+# and it is what lets `tests/integration/oop_bootstrap.rs` drive a hub-complete process.
 grpc_hub = { workspace = true }
 # `join_all` for the readiness healthcheck's probe fan-out (`src/health.rs`) —
 # the same primitive, from the same crate, the framework's own healthcheck
@@ -165,11 +164,11 @@ parking_lot = { workspace = true }
 # it. `S4`'s admin routes need the same double.
 utoipa = { workspace = true }
 # The shared backend-agnostic conformance suite, run against this gear's real
-# cache-derived default backends in `tests/conformance.rs`.
+# cache-derived default backends in `tests/integration/conformance.rs`.
 # Path-only, no version on purpose: cargo drops a path-only dev-dependency from the published
 # manifest, so publishing this gear never needs the conformance crate on crates.io.
 cf-gears-cluster-conformance = { path = "../cluster-conformance" }
-# `tests/oop_bootstrap.rs` spawns the real `cluster-oop` binary, which connects to
+# `tests/integration/oop_bootstrap.rs` spawns the real `cluster-oop` binary, which connects to
 # DirectoryService eagerly and propagates the failure (`bootstrap/oop.rs:551-553`,
 # ask `A2`) - so the test has to serve one. `directory_grpc` carries the generated
 # `DirectoryServiceServer`, the same feature `toolkit/bootstrap` already turns on.
@@ -181,18 +180,3 @@ tempfile = { workspace = true }
 # run. `std::env::set_var` is `unsafe` in edition 2024 and the workspace forbids
 # `unsafe_code`, so the hermetic helper is the only available shape.
 temp-env = { workspace = true }
-
-# Every tests/*.rs in one binary; see tests/integration.rs.
-[[test]]
-name = "integration"
-path = "tests/integration.rs"
-
-# Binaries of their own: each defines gears and checks which gears its binary
-# links, so other test files' gears must not be in it.
-[[test]]
-name = "consumer_wiring"
-path = "tests/consumer_wiring.rs"
-
-[[test]]
-name = "oop_probe_ordering"
-path = "tests/oop_probe_ordering.rs"

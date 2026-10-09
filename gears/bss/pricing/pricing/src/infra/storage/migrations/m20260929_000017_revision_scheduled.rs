@@ -34,7 +34,7 @@ use sea_orm_migration::prelude::*;
 pub struct Migration;
 
 /// Postgres: the CHECK dropped and added again widened, then the index. The CHECK's vocabulary is
-/// `RevisionState::ALL` in order, spelled once per dialect (`tests/pure_model.rs` pins both).
+/// `RevisionState::ALL` in order, spelled once per dialect (`tests/integration/pure_model.rs` pins both).
 const PG_UP: &[&str] = &[
     "ALTER TABLE bss.pricing_plan_revision DROP CONSTRAINT IF EXISTS chk_pricing_plan_revision_state",
     "ALTER TABLE bss.pricing_plan_revision ADD CONSTRAINT chk_pricing_plan_revision_state CHECK (state IN ('draft','pending','scheduled','published','superseded'))",
