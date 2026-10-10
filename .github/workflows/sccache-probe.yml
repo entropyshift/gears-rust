@@ -61,10 +61,14 @@ jobs:
           EOF
 
           echo "## List 40 keys"
-          curl -sS "${SIG[@]}" "$EP/$BUCKET?list-type=2&prefix=gears-rust/sccache/&max-keys=40" > "$TMP/list.xml"
-          KEYS=$(grep -o '<Key>[^<]*</Key>' "$TMP/list.xml" | sed 's/<[^>]*>//g')
-          echo "$KEYS" | wc -l
-          [[ -n "$KEYS" ]] || { head -c 600 "$TMP/list.xml"; exit 1; }
+          curl -sS "${SIG[@]}" -w '\nHTTP %{http_code}\n' "$EP/$BUCKET?list-type=2&prefix=gears-rust/sccache/&max-keys=40" > "$TMP/list.xml" || true
+          tail -c 400 "$TMP/list.xml"; echo
+          KEYS=$(grep -o '<Key>[^<]*</Key>' "$TMP/list.xml" | sed 's/<[^>]*>//g' || true)
+          if [[ -z "$KEYS" ]]; then
+            echo "No keys listed: timing GETs of absent keys instead (404 or 403 replies)."
+            KEYS=$(for n in $(seq 1 40); do echo "gears-rust/sccache/probe/$n$RANDOM$RANDOM"; done)
+          fi
+          echo "$(echo "$KEYS" | wc -l) keys"
 
           summary() { "$PY" -c 'import sys,statistics as st
           rows=[dict(f.split("=",1) for f in l.split() if "=" in f) for l in sys.stdin if l.strip()]
@@ -91,6 +95,7 @@ jobs:
 
   sccache-ab:
     name: musl vs glibc sccache (ubuntu)
+    if: ${{ !contains(github.event.head_commit.message, '[latency-only]') }}
     runs-on: ubuntu-latest
     environment:
       name: ci-cache-read
