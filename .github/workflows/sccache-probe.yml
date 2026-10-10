@@ -1,0 +1,186 @@
+# One-off probe: why are sccache reads slower on Linux runners?
+# 1. s3-latency: raw S3 GET timings with curl on all three OSes.
+# 2. sccache-ab: the same trybuild suite against the warm S3 cache, with the
+#    musl sccache that sccache-action installs and a glibc build of the same
+#    version, in A/B/A/B order.
+# Read-only cache key: nothing is written to the bucket.
+name: sccache probe
+
+on:
+  push:
+    branches: [ sccache-probe ]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  s3-latency:
+    name: S3 latency (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    environment:
+      name: ci-cache-read
+      deployment: false
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    steps:
+      - name: Measure
+        shell: bash
+        env:
+          EP: ${{ vars.S3_ENDPOINT }}
+          BUCKET: ${{ vars.S3_BUCKET }}
+          KEY: ${{ secrets.S3_ACCESS_KEY_ID }}
+          SECRET: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+        run: |
+          set -u
+          EP="${EP%/}"; HOST="${EP#https://}"; HOST="${HOST%%/*}"
+          TMP="${RUNNER_TEMP//\\//}"
+          SIG=(--aws-sigv4 "aws:amz:us-east-1:s3" --user "$KEY:$SECRET")
+          FMT='%{http_code} dns=%{time_namelookup} tcp=%{time_connect} tls=%{time_appconnect} ttfb=%{time_starttransfer} total=%{time_total} size=%{size_download} ip=%{remote_ip}\n'
+          PY=$(command -v python3 || command -v python)
+
+          echo "## $RUNNER_OS $(uname -m)"; curl --version | head -1
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            cat /etc/resolv.conf | grep -v '^#'; ip -6 route | head -3; nproc
+          fi
+
+          echo "## DNS (getaddrinfo, 5 times)"
+          "$PY" - "$HOST" <<'EOF'
+          import socket, sys, time
+          for _ in range(5):
+              t = time.perf_counter()
+              r = socket.getaddrinfo(sys.argv[1], 443, proto=socket.IPPROTO_TCP)
+              print(f"{(time.perf_counter()-t)*1000:.1f} ms", sorted({(a[0].name, a[4][0]) for a in r}))
+          EOF
+
+          echo "## List 40 keys"
+          curl -sS "${SIG[@]}" "$EP/$BUCKET?list-type=2&prefix=gears-rust/sccache/&max-keys=40" > "$TMP/list.xml"
+          KEYS=$(grep -o '<Key>[^<]*</Key>' "$TMP/list.xml" | sed 's/<[^>]*>//g')
+          echo "$KEYS" | wc -l
+          [[ -n "$KEYS" ]] || { head -c 600 "$TMP/list.xml"; exit 1; }
+
+          summary() { "$PY" -c 'import sys,statistics as st
+          rows=[dict(f.split("=",1) for f in l.split() if "=" in f) for l in sys.stdin if l.strip()]
+          for k in ("dns","tcp","tls","ttfb","total"):
+              v=sorted(float(r[k]) for r in rows)
+              print(f"{k}: median={st.median(v):.3f} max={v[-1]:.3f} n={len(v)}")'; }
+
+          echo "## GET, new connection per object"
+          for k in $KEYS; do
+            curl -sS -o "$TMP/obj" "${SIG[@]}" -w "$FMT" "$EP/$BUCKET/$k"
+          done | tee "$TMP/new.txt"
+          cut -d' ' -f2- "$TMP/new.txt" | summary
+
+          echo "## GET, one reused connection"
+          for k in $KEYS; do printf 'url = "%s"\noutput = "%s"\n' "$EP/$BUCKET/$k" "$TMP/obj"; done > "$TMP/cfg"
+          curl -sS "${SIG[@]}" -w "$FMT" -K "$TMP/cfg" | tee "$TMP/reuse.txt"
+          cut -d' ' -f2- "$TMP/reuse.txt" | summary
+
+          echo "## GET, 8 in parallel"
+          t=$("$PY" -c "import time;print(time.time())")
+          curl -sS "${SIG[@]}" --parallel --parallel-max 8 -w "$FMT" -K "$TMP/cfg" > "$TMP/par.txt"
+          echo "wall for $(wc -l < "$TMP/par.txt") objects: $("$PY" -c "import time;print(round(time.time()-$t,3))") s"
+          cut -d' ' -f2- "$TMP/par.txt" | summary
+
+  sccache-ab:
+    name: musl vs glibc sccache (ubuntu)
+    runs-on: ubuntu-latest
+    environment:
+      name: ci-cache-read
+      deployment: false
+    timeout-minutes: 90
+    env:
+      RUSTFLAGS: "-C debuginfo=0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install protoc
+        uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: protoc@3.34.1
+
+      - name: Install Rust toolchain from rust-toolchain.toml
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup show
+
+      - name: Install nextest
+        uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: nextest
+
+      - name: Restore Cargo registry
+        uses: ./.github/actions/cargo-registry
+
+      - name: Install sccache (musl, as in CI)
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+
+      - name: Build glibc sccache of the same version
+        run: |
+          v=$(sccache --version | awk '{print $2}')
+          echo "version $v"; file "$(command -v sccache)"
+          cd "$RUNNER_TEMP"
+          time cargo install sccache --version "$v" --locked --root "$RUNNER_TEMP/glibc"
+          file "$RUNNER_TEMP/glibc/bin/sccache"
+
+      - name: A/B runs of the contract-macros trybuild suite
+        env:
+          EP: ${{ vars.S3_ENDPOINT }}
+          BUCKET: ${{ vars.S3_BUCKET }}
+          KEY: ${{ secrets.S3_ACCESS_KEY_ID }}
+          SECRET: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          musl=$(command -v sccache); glibc="$RUNNER_TEMP/glibc/bin/sccache"
+          W="$RUNNER_TEMP/wrap/sccache"; mkdir -p "$RUNNER_TEMP/wrap" "$RUNNER_TEMP/out"
+          OUT="$RUNNER_TEMP/out"
+          stop() { [[ -x "$W" ]] && "$W" --stop-server > /dev/null 2>&1 || true; sleep 2; }
+          start() {
+            cp "$1" "$W"
+            SCCACHE_IDLE_TIMEOUT=0 SCCACHE_ENDPOINT="${EP%/}" SCCACHE_REGION=us-east-1 \
+              SCCACHE_BUCKET="$BUCKET" SCCACHE_S3_KEY_PREFIX=gears-rust/sccache/ \
+              AWS_ACCESS_KEY_ID="$KEY" AWS_SECRET_ACCESS_KEY="$SECRET" \
+              "$W" --start-server
+          }
+          export RUSTC_WRAPPER="$W"
+          PKG=cf-gears-toolkit-contract-macros-tests
+          nproc; free -g; df -h .
+
+          start "$musl"
+          time cargo nextest run -p "$PKG" --no-run
+
+          i=0
+          for v in musl glibc musl glibc; do
+            i=$((i+1))
+            stop; start "${!v}"; "$W" --zero-stats > /dev/null
+            rm -rf target/tests/trybuild
+            vmstat 5 > "$OUT/vmstat-$i-$v.txt" & VM=$!
+            t0=$(date +%s)
+            cargo nextest run -p "$PKG" -E 'binary(ui)' --no-fail-fast > "$OUT/run-$i-$v.txt" 2>&1 || echo "run $i failed"
+            wall=$(( $(date +%s) - t0 ))
+            kill $VM || true
+            "$W" --show-stats > "$OUT/stats-$i-$v.txt"
+            {
+              echo "### run $i: $v, wall ${wall}s"
+              grep -E "Compile requests  |Cache hits  |Cache misses  |Cache write errors|Cache read errors|Average cache (read hit|read miss|write)|Non-cacheable calls" "$OUT/stats-$i-$v.txt"
+              echo "vmstat cpu (us sy id wa st), mean:"
+              awk 'NR>2{us+=$13;sy+=$14;id+=$15;wa+=$16;st+=$17;n++} END{if(n) printf "%.0f %.0f %.0f %.0f %.0f\n",us/n,sy/n,id/n,wa/n,st/n}' "$OUT/vmstat-$i-$v.txt"
+            } | tee -a "$OUT/summary.txt"
+          done
+          stop
+          { echo '```'; cat "$OUT/summary.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload probe output
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sccache-probe
+          path: ${{ runner.temp }}/out
