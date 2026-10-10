@@ -21,7 +21,7 @@ env:
 jobs:
   s3-latency:
     name: S3 latency (${{ matrix.os }})
-    if: ${{ !contains(github.event.head_commit.message, '[log-only]') }}
+    if: ${{ contains(github.event.head_commit.message, '[latency]') }}
     runs-on: ${{ matrix.os }}
     environment:
       name: ci-cache-read
@@ -108,7 +108,7 @@ jobs:
 
   sccache-log:
     name: sccache debug log (${{ matrix.os }})
-    if: ${{ !contains(github.event.head_commit.message, '[latency-only]') }}
+    if: ${{ contains(github.event.head_commit.message, '[log]') }}
     runs-on: ${{ matrix.os }}
     environment:
       name: ci-cache-read
@@ -181,4 +181,97 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sccache-log-${{ matrix.os }}
+          path: ${{ runner.temp }}/out
+
+  # TCP timestamps on and off, same runner, same suite, order on/off/on/off.
+  ts-ab:
+    name: TCP timestamps A/B (ubuntu)
+    if: ${{ contains(github.event.head_commit.message, '[ts-ab]') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ci-cache-read
+      deployment: false
+    timeout-minutes: 100
+    env:
+      RUSTFLAGS: "-C debuginfo=0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install protoc
+        uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: protoc@3.34.1
+
+      - name: Install Rust toolchain from rust-toolchain.toml
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup show
+
+      - name: Install nextest
+        uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: nextest
+
+      - name: Restore Cargo registry
+        uses: ./.github/actions/cargo-registry
+
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+
+      - name: Trybuild suite, timestamps on and off
+        env:
+          EP: ${{ vars.S3_ENDPOINT }}
+          BUCKET: ${{ vars.S3_BUCKET }}
+          KEY: ${{ secrets.S3_ACCESS_KEY_ID }}
+          SECRET: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/out"; mkdir -p "$OUT"
+          start() {
+            SCCACHE_IDLE_TIMEOUT=0 SCCACHE_ENDPOINT="${EP%/}" SCCACHE_REGION=us-east-1 \
+              SCCACHE_BUCKET="$BUCKET" SCCACHE_S3_KEY_PREFIX=gears-rust/sccache/ \
+              AWS_ACCESS_KEY_ID="$KEY" AWS_SECRET_ACCESS_KEY="$SECRET" "$@" sccache --start-server
+          }
+          export RUSTC_WRAPPER=sccache
+          PKG=cf-gears-toolkit-contract-macros-tests
+          sysctl net.ipv4.tcp_timestamps net.ipv4.tcp_syn_retries net.ipv4.ip_local_port_range
+
+          start env
+          time cargo nextest run -p "$PKG" --no-run
+          sccache --stop-server > /dev/null; sleep 2
+
+          i=0
+          for ts in 1 0 1 0; do
+            i=$((i+1)); tag="$i-ts$ts"
+            sudo sysctl -q -w net.ipv4.tcp_timestamps=$ts
+            start env SCCACHE_LOG="sccache=debug,opendal=debug" SCCACHE_ERROR_LOG="$OUT/server-$tag.log"
+            rm -rf target/tests/trybuild
+            nstat -n > /dev/null
+            t0=$(date +%s)
+            cargo nextest run -p "$PKG" -E 'test(=ui::ui)' --no-fail-fast > "$OUT/run-$tag.txt" 2>&1 || { echo "run $tag failed"; tail -20 "$OUT/run-$tag.txt"; }
+            wall=$(( $(date +%s) - t0 ))
+            nstat -az TcpActiveOpens TcpAttemptFails TcpExtTCPSynRetrans TcpExtTCPTimeouts > "$OUT/nstat-$tag.txt"
+            sccache --show-stats > "$OUT/stats-$tag.txt"
+            sccache --stop-server > /dev/null || true; sleep 2
+            python3 - "$OUT/server-$tag.log" "$tag" "$wall" "$OUT/nstat-$tag.txt" <<'EOF2' | tee -a "$OUT/summary.txt"
+          import re, statistics as st, sys
+          log, tag, wall, ns = sys.argv[1:]
+          text = open(log, errors="replace").read()
+          hits = sorted(float(x) for x in re.findall(r"Cache hit in ([0-9.]+) s", text))
+          slow = [h for h in hits if h >= 3]
+          ns = dict(l.split()[:2] for l in open(ns) if l.strip() and not l.startswith("#"))
+          print(f"run {tag}: wall {wall}s hits {len(hits)} mean {st.mean(hits):.3f} median {st.median(hits):.3f} "
+                f"slow>=3s {len(slow)} ({sum(slow):.0f}s) connect-timeouts {text.count('Operation timed out')} "
+                f"refused {text.count('Connection refused')} | " + " ".join(f"{k}={v}" for k, v in ns.items()))
+          EOF2
+          done
+          sudo sysctl -q -w net.ipv4.tcp_timestamps=1
+          { echo '```'; cat "$OUT/summary.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload output
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ts-ab
           path: ${{ runner.temp }}/out
