@@ -21,7 +21,7 @@ env:
 jobs:
   s3-latency:
     name: S3 latency (${{ matrix.os }})
-    if: ${{ !contains(github.event.head_commit.message, '[ab-only]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[log-only]') }}
     runs-on: ${{ matrix.os }}
     environment:
       name: ci-cache-read
@@ -106,14 +106,18 @@ jobs:
           echo "wall for $(wc -l < "$TMP/par.txt") objects: $("$PY" -c "import time;print(round(time.time()-$t,3))") s"
           cut -d' ' -f2- "$TMP/par.txt" | summary
 
-  sccache-ab:
-    name: musl vs glibc sccache (ubuntu)
+  sccache-log:
+    name: sccache debug log (${{ matrix.os }})
     if: ${{ !contains(github.event.head_commit.message, '[latency-only]') }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     environment:
       name: ci-cache-read
       deployment: false
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
     env:
       RUSTFLAGS: "-C debuginfo=0"
     steps:
@@ -138,18 +142,10 @@ jobs:
       - name: Restore Cargo registry
         uses: ./.github/actions/cargo-registry
 
-      - name: Install sccache (musl, as in CI)
+      - name: Install sccache
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
-      - name: Build glibc sccache of the same version
-        run: |
-          v=$(sccache --version | awk '{print $2}')
-          echo "version $v"; file "$(command -v sccache)"
-          cd "$RUNNER_TEMP"
-          time cargo install sccache --version "$v" --locked --root "$RUNNER_TEMP/glibc"
-          file "$RUNNER_TEMP/glibc/bin/sccache"
-
-      - name: A/B runs of the contract-macros trybuild suite
+      - name: Trybuild suite with a debug server log
         env:
           EP: ${{ vars.S3_ENDPOINT }}
           BUCKET: ${{ vars.S3_BUCKET }}
@@ -157,48 +153,32 @@ jobs:
           SECRET: ${{ secrets.S3_SECRET_ACCESS_KEY }}
         run: |
           set -euo pipefail
-          musl=$(command -v sccache); glibc="$RUNNER_TEMP/glibc/bin/sccache"
-          W="$RUNNER_TEMP/wrap/sccache"; mkdir -p "$RUNNER_TEMP/wrap" "$RUNNER_TEMP/out"
-          OUT="$RUNNER_TEMP/out"
-          stop() { [[ -x "$W" ]] && "$W" --stop-server > /dev/null 2>&1 || true; sleep 2; }
+          OUT="$RUNNER_TEMP/out"; mkdir -p "$OUT"
           start() {
-            cp "$1" "$W"
             SCCACHE_IDLE_TIMEOUT=0 SCCACHE_ENDPOINT="${EP%/}" SCCACHE_REGION=us-east-1 \
               SCCACHE_BUCKET="$BUCKET" SCCACHE_S3_KEY_PREFIX=gears-rust/sccache/ \
-              AWS_ACCESS_KEY_ID="$KEY" AWS_SECRET_ACCESS_KEY="$SECRET" \
-              "$W" --start-server
+              AWS_ACCESS_KEY_ID="$KEY" AWS_SECRET_ACCESS_KEY="$SECRET" "$@" sccache --start-server
           }
-          export RUSTC_WRAPPER="$W"
+          export RUSTC_WRAPPER=sccache
           PKG=cf-gears-toolkit-contract-macros-tests
-          nproc; free -g; df -h .
+          sccache --version; (nproc 2>/dev/null || sysctl -n hw.ncpu)
 
-          start "$musl"
+          start env
           time cargo nextest run -p "$PKG" --no-run
+          sccache --stop-server > /dev/null; sleep 2
 
-          i=0
-          for v in musl glibc musl glibc; do
-            i=$((i+1))
-            stop; start "${!v}"; "$W" --zero-stats > /dev/null
-            rm -rf target/tests/trybuild
-            vmstat 5 > "$OUT/vmstat-$i-$v.txt" & VM=$!
-            t0=$(date +%s)
-            cargo nextest run -p "$PKG" -E 'test(=ui::ui)' --no-fail-fast > "$OUT/run-$i-$v.txt" 2>&1 || { echo "run $i failed"; tail -20 "$OUT/run-$i-$v.txt"; }
-            wall=$(( $(date +%s) - t0 ))
-            kill $VM || true
-            "$W" --show-stats > "$OUT/stats-$i-$v.txt"
-            {
-              echo "### run $i: $v, wall ${wall}s"
-              grep -E "Compile requests  |Cache hits  |Cache misses  |Cache write errors|Cache read errors|Average cache (read hit|read miss|write)|Non-cacheable calls" "$OUT/stats-$i-$v.txt"
-              echo "vmstat cpu (us sy id wa st), mean:"
-              awk 'NR>2{us+=$13;sy+=$14;id+=$15;wa+=$16;st+=$17;n++} END{if(n) printf "%.0f %.0f %.0f %.0f %.0f\n",us/n,sy/n,id/n,wa/n,st/n}' "$OUT/vmstat-$i-$v.txt"
-            } | tee -a "$OUT/summary.txt"
-          done
-          stop
-          { echo '```'; cat "$OUT/summary.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          start env SCCACHE_LOG="sccache=debug,opendal=debug" SCCACHE_ERROR_LOG="$OUT/server.log"
+          rm -rf target/tests/trybuild
+          t0=$(date +%s)
+          cargo nextest run -p "$PKG" -E 'test(=ui::ui)' --no-fail-fast > "$OUT/run.txt" 2>&1 || { echo "run failed"; tail -20 "$OUT/run.txt"; }
+          echo "wall $(( $(date +%s) - t0 ))s" | tee "$OUT/wall.txt"
+          sccache --show-stats | tee "$OUT/stats.txt"
+          sccache --stop-server > /dev/null || true
+          ls -la "$OUT"
 
-      - name: Upload probe output
+      - name: Upload log
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: sccache-probe
+          name: sccache-log-${{ matrix.os }}
           path: ${{ runner.temp }}/out
