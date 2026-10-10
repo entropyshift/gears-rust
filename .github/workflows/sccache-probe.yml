@@ -63,10 +63,11 @@ jobs:
 
           echo "## List keys under narrow prefixes"
           : > "$TMP/keys.txt"
-          for pre in 0/0/ 1/2/ a/b/ f/e/ 7/3/; do
-            curl -sS "${SIG[@]}" -w '\nHTTP %{http_code} %{time_total}s\n' \
-              "$EP/$BUCKET?list-type=2&prefix=gears-rust/sccache/$pre&max-keys=10" > "$TMP/list.xml" || true
-            tail -1 "$TMP/list.xml"
+          for q in "max-keys=5" "list-type=2&max-keys=5" "prefix=gears-rust%2Fsccache%2F0%2F0%2F&max-keys=10" \
+                   "list-type=2&prefix=gears-rust%2Fsccache%2F1%2F2%2F&max-keys=10" "prefix=gears-rust%2Fsccache%2Fa%2Fb%2F&max-keys=10" \
+                   "prefix=gears-rust%2Fsccache%2Ff%2Fe%2F&max-keys=10" "prefix=gears-rust%2Fsccache%2F7%2F3%2F&max-keys=10"; do
+            curl -sS "${SIG[@]}" -w '\nHTTP %{http_code} %{time_total}s\n' "$EP/$BUCKET/?$q" > "$TMP/list.xml" || true
+            echo "$q: $(tail -1 "$TMP/list.xml") $(head -c 300 "$TMP/list.xml" | grep -o '<Code>[^<]*' || true)"
             "$PY" - "$TMP/list.xml" >> "$TMP/keys.txt" <<'EOF2'
           import re, sys
           x = open(sys.argv[1]).read()
