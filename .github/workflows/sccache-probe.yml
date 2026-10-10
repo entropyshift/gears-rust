@@ -21,6 +21,7 @@ env:
 jobs:
   s3-latency:
     name: S3 latency (${{ matrix.os }})
+    if: ${{ !contains(github.event.head_commit.message, '[ab-only]') }}
     runs-on: ${{ matrix.os }}
     environment:
       name: ci-cache-read
@@ -169,7 +170,7 @@ jobs:
             rm -rf target/tests/trybuild
             vmstat 5 > "$OUT/vmstat-$i-$v.txt" & VM=$!
             t0=$(date +%s)
-            cargo nextest run -p "$PKG" -E 'binary(ui)' --no-fail-fast > "$OUT/run-$i-$v.txt" 2>&1 || echo "run $i failed"
+            cargo nextest run -p "$PKG" -E 'test(=ui::ui)' --no-fail-fast > "$OUT/run-$i-$v.txt" 2>&1 || { echo "run $i failed"; tail -20 "$OUT/run-$i-$v.txt"; }
             wall=$(( $(date +%s) - t0 ))
             kill $VM || true
             "$W" --show-stats > "$OUT/stats-$i-$v.txt"
