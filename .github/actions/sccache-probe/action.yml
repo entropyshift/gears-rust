@@ -33,6 +33,17 @@ inputs:
 runs:
   using: composite
   steps:
+    # Linux runners only. Our S3 server closes every connection, so each
+    # cache read opens a new one. Behind the runners' shared NAT, about 3% of
+    # those connects reuse a port the server still remembers; it then ignores
+    # the connect when the TCP timestamp looks old, and the read stalls about
+    # 20 s. Without timestamps the server answers at once, and a refused read
+    # is just a cache miss. Measured: docs/TESTING.md 7.4.
+    - name: Turn off TCP timestamps (S3 connect stalls)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: sudo sysctl -q -w net.ipv4.tcp_timestamps=0 || echo "::warning::could not turn off TCP timestamps"
+
     # Order: S3 storage, then GitHub Actions cache, then plain rustc.
     # The keys stay in this step; later steps only talk to the server.
     # Idle timeout 0: otherwise the server stops during long test runs and

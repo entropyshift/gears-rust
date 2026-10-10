@@ -557,6 +557,15 @@ sccache never deletes objects, so the expiry rule is what removes compiled crate
 dependency versions. It counts from when an object was written, so each crate misses once
 a month and is written again.
 
+Storage that closes the connection after each request (`Connection: close`) makes
+sccache open a new connection for every crate it reads. On Linux runners, about 3% of
+those connects then stalled for about 20 s: the server ignored them when the TCP
+timestamp looked older than that of the last connection it remembered on the same NAT
+port. The sccache action turns TCP timestamps off on Linux runners. The server then
+refuses such a connect at once, and sccache counts the read as a miss. In one trybuild
+suite that took the run from 332 s to about 105 s. Storage that keeps connections open
+(R2 does) avoids most new connections in the first place.
+
 To rotate a key: create a new key with the same access, put it in the environment, and
 revoke the old key after a new run is green. Rotate both keys regularly
 (`guidelines/SECURITY.md`), and the write key at once if it may have leaked.
