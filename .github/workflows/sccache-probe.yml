@@ -44,7 +44,7 @@ jobs:
           EP="${EP%/}"; HOST="${EP#https://}"; HOST="${HOST%%/*}"
           TMP="${RUNNER_TEMP//\\//}"
           SIG=(--aws-sigv4 "aws:amz:us-east-1:s3" --user "$KEY:$SECRET")
-          FMT='%{http_code} dns=%{time_namelookup} tcp=%{time_connect} tls=%{time_appconnect} ttfb=%{time_starttransfer} total=%{time_total} size=%{size_download} ip=%{remote_ip}\n'
+          FMT='%{http_code} dns=%{time_namelookup} tcp=%{time_connect} tls=%{time_appconnect} ttfb=%{time_starttransfer} total=%{time_total} size=%{size_download} speed=%{speed_download} ip=%{remote_ip}\n'
           PY=$(command -v python3 || command -v python)
 
           echo "## $RUNNER_OS $(uname -m)"; curl --version | head -1
@@ -61,19 +61,30 @@ jobs:
               print(f"{(time.perf_counter()-t)*1000:.1f} ms", sorted({(a[0].name, a[4][0]) for a in r}))
           EOF
 
-          echo "## List 40 keys"
-          curl -sS "${SIG[@]}" -w '\nHTTP %{http_code}\n' "$EP/$BUCKET?list-type=2&prefix=gears-rust/sccache/&max-keys=40" > "$TMP/list.xml" || true
-          tail -c 400 "$TMP/list.xml"; echo
-          KEYS=$(grep -o '<Key>[^<]*</Key>' "$TMP/list.xml" | sed 's/<[^>]*>//g' || true)
-          if [[ -z "$KEYS" ]]; then
-            echo "No keys listed: timing GETs of absent keys instead (404 or 403 replies)."
-            KEYS=$(for n in $(seq 1 40); do echo "gears-rust/sccache/probe/$n$RANDOM$RANDOM"; done)
-          fi
-          echo "$(echo "$KEYS" | wc -l) keys"
+          echo "## List keys under narrow prefixes"
+          : > "$TMP/keys.txt"
+          for pre in 0/0/ 1/2/ a/b/ f/e/ 7/3/; do
+            curl -sS "${SIG[@]}" -w '\nHTTP %{http_code} %{time_total}s\n' \
+              "$EP/$BUCKET?list-type=2&prefix=gears-rust/sccache/$pre&max-keys=10" > "$TMP/list.xml" || true
+            tail -1 "$TMP/list.xml"
+            "$PY" - "$TMP/list.xml" >> "$TMP/keys.txt" <<'EOF2'
+          import re, sys
+          x = open(sys.argv[1]).read()
+          for k, n in re.findall(r"<Key>([^<]*)</Key>.*?<Size>(\d+)</Size>", x):
+              print(k, n)
+          EOF2
+          done
+          KEYS=$(cut -d' ' -f1 "$TMP/keys.txt")
+          echo "$(wc -l < "$TMP/keys.txt") keys; sizes (bytes):"; cut -d' ' -f2 "$TMP/keys.txt" | sort -n | tr '\n' ' '; echo
+          [[ -n "$KEYS" ]] || exit 1
+
+          echo "## Control: 30 MB from GitHub releases"
+          curl -sSL -o "$TMP/ctl" -w 'speed=%{speed_download} B/s total=%{time_total}\n' \
+            https://github.com/mozilla/sccache/releases/download/v0.18.0/sccache-v0.18.0-x86_64-unknown-linux-musl.tar.gz
 
           summary() { "$PY" -c 'import sys,statistics as st
           rows=[dict(f.split("=",1) for f in l.split() if "=" in f) for l in sys.stdin if l.strip()]
-          for k in ("dns","tcp","tls","ttfb","total"):
+          for k in ("dns","tcp","tls","ttfb","total","size","speed"):
               v=sorted(float(r[k]) for r in rows)
               print(f"{k}: median={st.median(v):.3f} max={v[-1]:.3f} n={len(v)}")'; }
 
