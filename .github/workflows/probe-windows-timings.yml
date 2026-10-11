@@ -16,8 +16,12 @@ env:
 
 jobs:
   build-timings:
-    name: Build tests with timings (windows)
+    name: Build tests with timings (windows, ${{ matrix.variant }})
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [ as-is, defender-off, dev-drive ]
     environment:
       name: ci-cache-read
       deployment: false
@@ -34,6 +38,25 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Antivirus status
+        shell: pwsh
+        run: Get-MpComputerStatus | Select-Object AMServiceEnabled, AntivirusEnabled, RealTimeProtectionEnabled, IsTamperProtected | Format-List
+
+      - name: Turn off antivirus real-time scanning
+        if: matrix.variant == 'defender-off'
+        shell: pwsh
+        run: |
+          Set-MpPreference -DisableRealtimeMonitoring $true
+          Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled | Format-List
+
+      # Mounted at the usual target folder, so paths and sccache keys stay the same.
+      - name: Dev Drive for the target folder
+        if: matrix.variant == 'dev-drive'
+        uses: samypr100/setup-dev-drive@562171fe8df7401fdf582d766cd3b6ab80d5b1a0 # v4.1.0
+        with:
+          drive-size: 80GB
+          mount-path: ${{ github.workspace }}/target
 
       - name: Install protoc
         uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
@@ -84,7 +107,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: windows-timings
+          name: windows-timings-${{ matrix.variant }}
           path: |
             target/cargo-timings/
             ${{ runner.temp }}/build.txt
