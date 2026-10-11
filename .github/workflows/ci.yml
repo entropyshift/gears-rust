@@ -272,6 +272,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Windows: put target/ on a Dev Drive (ReFS). The test build ran in 11 min
+      # instead of 17 (same cache hits). Mounted at the usual path, so paths
+      # and sccache keys do not change. Grows as needed; D: has about 147 GB.
+      - name: Dev Drive for target/ (Windows)
+        if: runner.os == 'Windows'
+        uses: samypr100/setup-dev-drive@562171fe8df7401fdf582d766cd3b6ab80d5b1a0 # v4.1.0
+        with:
+          drive-size: 100GB
+          mount-path: ${{ github.workspace }}/target
+
       - name: Install protoc
         uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
         with:
