@@ -16,12 +16,13 @@ env:
 
 jobs:
   build-timings:
-    name: Build tests with timings (windows, ${{ matrix.variant }})
+    name: Build tests with timings (windows, ${{ matrix.variant }} ${{ matrix.sample }})
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        variant: [ as-is, defender-off, dev-drive ]
+        variant: [ as-is, dev-drive ]
+        sample: [ 1, 2 ]
     environment:
       name: ci-cache-read
       deployment: false
@@ -107,7 +108,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: windows-timings-${{ matrix.variant }}
+          name: windows-timings-${{ matrix.variant }}-${{ matrix.sample }}
           path: |
             target/cargo-timings/
             ${{ runner.temp }}/build.txt
