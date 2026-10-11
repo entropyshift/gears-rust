@@ -1,0 +1,107 @@
+# One-off probe: what would `cargo test --doc --workspace` add to the Ubuntu
+# Test Suite job, and do the doctests pass? Same setup as that job; the test
+# build runs first, as in CI, then the doctests are timed on top of it.
+name: probe doctests
+
+on:
+  push:
+    branches: [ ci-probe-doctests ]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  doctests:
+    name: Doctests on top of the test build (ubuntu)
+    runs-on: ubuntu-latest
+    environment:
+      name: ci-cache-read
+      deployment: false
+    timeout-minutes: 90
+    env:
+      RUSTFLAGS: "-C debuginfo=0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install protoc
+        uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: protoc@3.34.1
+
+      - name: Install Go (required for aws-lc-fips-sys FIPS build)
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.21.x'
+          cache: false
+
+      - name: Install Rust toolchain from rust-toolchain.toml
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup show
+
+      - name: Install nextest
+        uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: nextest
+
+      - name: Restore Cargo registry
+        uses: ./.github/actions/cargo-registry
+
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+
+      - name: Probe sccache & set RUSTC_WRAPPER
+        uses: ./.github/actions/sccache-probe
+        with:
+          s3-endpoint: ${{ vars.S3_ENDPOINT }}
+          s3-region: ${{ vars.S3_REGION }}
+          s3-bucket: ${{ vars.S3_BUCKET }}
+          s3-access-key-id: ${{ secrets.S3_ACCESS_KEY_ID }}
+          s3-secret-access-key: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+
+      - name: Build tests (no macros), as in the Test Suite job
+        run: cargo nextest run --no-run --workspace --exclude cf-gears-toolkit-macros-tests --exclude cf-gears-toolkit-db-macros
+
+      - name: Doctests, timed
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          sccache --zero-stats > /dev/null
+          start=$(date +%s)
+          cargo test --doc --workspace --no-fail-fast > "$RUNNER_TEMP/out/doctests.txt" 2>&1 && rc=0 || rc=$?
+          echo "doctests: exit $rc, $(( $(date +%s) - start ))s" | tee "$RUNNER_TEMP/out/summary.txt"
+          sccache --show-stats | grep -E "Compile requests  |Cache hits  |Cache misses  " | tee -a "$RUNNER_TEMP/out/summary.txt"
+          sed 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/out/doctests.txt" > "$RUNNER_TEMP/out/doctests-plain.txt"
+          python3 - "$RUNNER_TEMP/out/doctests-plain.txt" <<'PY' | tee -a "$RUNNER_TEMP/out/summary.txt"
+          import re, sys
+          text = open(sys.argv[1], errors="replace").read()
+          tot = dict(passed=0, failed=0, ignored=0)
+          crates_with_tests = 0
+          for m in re.finditer(r"test result: \w+\. (\d+) passed; (\d+) failed; (\d+) ignored", text):
+              p, f, i = map(int, m.groups())
+              tot["passed"] += p; tot["failed"] += f; tot["ignored"] += i
+              crates_with_tests += (p + f + i) > 0
+          print("doctest totals:", tot, "crates with doctests:", crates_with_tests)
+          fails = re.findall(r"^    (\S+ - .*?) \(line \d+\)", text, re.M)
+          print("failed doctests:", len(fails))
+          for f in fails[:40]:
+              print("  ", f)
+          errs = re.findall(r"^error(?:\[\w+\])?: .*", text, re.M)
+          print("error lines:", len(errs))
+          for e in sorted(set(errs))[:20]:
+              print("  ", e)
+          PY
+          { echo '```'; cat "$RUNNER_TEMP/out/summary.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Upload output
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: doctests
+          path: ${{ runner.temp }}/out
