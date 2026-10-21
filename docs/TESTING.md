@@ -456,7 +456,7 @@ Gear runtime settings are YAML-driven under `gears:<gear_name>:` with a `config`
 ```
 PR opened / updated
   ├── ci.yml
-  │     ├── test          — fmt + clippy + unit tests (Ubuntu, macOS, Windows)
+  │     ├── test          — fmt + clippy + unit tests (Ubuntu)
   │     ├── integration   — DB integration tests (Ubuntu)
   │     ├── test-fips     — FIPS verification / platform-specific FIPS test lanes
   │     ├── security      — cargo-deny
@@ -477,6 +477,7 @@ Additional quality workflows
   └── pr-reviewer-check.yml — reviewer assignment hygiene
 
 Nightly (schedule)
+  ├── macos-windows-tests.yml — unit tests on macOS and Windows (auto-creates issue on failure)
   ├── e2e.yml              — full E2E + specialized E2E lanes (auto-creates issue on failure)
   ├── clusterfuzzlite      — fuzz testing
   ├── codeql.yml           — scheduled code scanning
