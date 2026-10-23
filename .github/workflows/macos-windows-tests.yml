@@ -12,6 +12,9 @@ on:
   schedule:
     - cron: '0 2 * * *'   # 02:00 UTC daily, with the clippy and e2e nightlies
   workflow_dispatch:
+  # TEST ONLY, not for upstream: run once on this fork branch.
+  push:
+    branches: [ ci-nightly-macos-windows-test ]
 
 # The event is in the key, so a manual run does not cancel the nightly one.
 concurrency:
