@@ -488,6 +488,67 @@ Nightly (schedule)
   └── pr-reviewer-check.yml — reviewer assignment checks
 ```
 
+### 7.4 CI build cache (sccache)
+
+CI jobs compile with sccache. `.github/actions/sccache` sets it up. It stores compiled
+crates in the first of these that works:
+
+1. S3-compatible storage (AWS S3, Cloudflare R2, MinIO and others), if set up as below.
+2. The GitHub Actions cache.
+3. Nothing. The job builds with plain rustc. A cache problem never fails a job.
+
+Only runs on `main` write to the cache. All other runs, PRs included, only read it. So PRs
+do not fill the 10 GB GitHub Actions cache with entries no other run can use. Each job log
+has a `sccache backend:` line that shows what it used.
+
+Without the setup below, CI uses the GitHub Actions cache.
+
+#### S3 setup
+
+Add these repository variables in Settings > Secrets and variables > Actions > Variables:
+
+| Variable | Value |
+|----------|-------|
+| `S3_BUCKET` | bucket name |
+| `S3_ENDPOINT` | empty for AWS S3, else the provider URL, for example `https://<account>.r2.cloudflarestorage.com` for Cloudflare R2 |
+| `S3_REGION` | AWS S3: the bucket region. R2: `auto`. Default: `us-east-1` |
+
+Put the keys in two environments (Settings > Environments). Each one gets the secrets
+`S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`:
+
+| Environment | Key | Deployment branches |
+|-------------|-----|---------------------|
+| `ci-cache-write` | read and write | `main` only |
+| `ci-cache-read` | read only, same bucket | any |
+
+Jobs on `main` use `ci-cache-write`. All other runs use `ci-cache-read`. PR code can read
+the key its job has, so only the branch rule keeps the write key out of PRs.
+
+- Do not add reviewers or a wait timer to `ci-cache-read`, or every PR job will wait.
+- Do not add the keys as repository or organization secrets. Every job could read them
+  then, with or without an environment.
+
+Treat the write key like a deploy key. Jobs build their binaries from the crates they get
+from the cache, so anyone with this key can change what later CI runs execute. To rotate
+a key, create a new one with the same access, put it in the environment, and revoke the
+old one after a new run is green.
+
+Runs without the secrets (PRs from forks, Dependabot PRs) use the GitHub Actions cache.
+When S3 is set up, `main` does not write to that cache, so these runs compile everything.
+
+sccache stores objects under `gears-rust/sccache/` and never deletes them. Add a bucket
+rule that deletes objects under this prefix after 30 days. The rule counts from when an
+object was written, so each crate misses the cache once a month and is written again.
+
+On Linux runners with S3, the action turns off TCP timestamps. Some S3 servers close each
+connection after one request. Behind the runners' shared NAT, about 3% of new connections
+then stalled for about 20 s. With timestamps off, Ubuntu test jobs took about half as long.
+
+#### Keep the cache keys stable
+
+sccache adds every `CARGO_*` environment variable and `RUSTFLAGS` to its Rust cache keys.
+Adding or changing one in a job makes that job's next run compile everything.
+
 ---
 
 ## 8. Custom Architecture Lints
